@@ -3,15 +3,19 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const db = require('./db');
 
 const app = express();
 const server = http.createServer(app);
 
+// 🔌 Socket.IO Configuration
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
+// 🔐 Middleware di autenticazione Socket
 io.use((socket, next) => {
   const clientKey = socket.handshake.auth.key;
   if (clientKey === process.env.ACCESS_KEY) {
@@ -22,6 +26,7 @@ io.use((socket, next) => {
   return next(new Error('Chiave di accesso non valida'));
 });
 
+// 📡 Gestione Connessioni & Eventi
 io.on('connection', (socket) => {
   console.log(`🔌 Nuovo client connesso: ${socket.id}`);
   socket.emit('state_sync', db.getState());
@@ -69,11 +74,12 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => console.log(`🔌 Client disconnesso: ${socket.id}`));
 });
 
+// 🌐 Serve il frontend buildato
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
+// 🗄️ API: Reset Database
 app.post('/api/reset-db', (req, res) => {
-  const { key } = req.query;
-  if (key !== process.env.ACCESS_KEY) return res.status(403).json({ error: 'Accesso negato' });
+  if (req.query.key !== process.env.ACCESS_KEY) return res.status(403).json({ error: 'Accesso negato' });
   try {
     db.exec('DROP TABLE IF EXISTS history');
     db.exec('DROP TABLE IF EXISTS articles');
@@ -94,8 +100,43 @@ app.post('/api/reset-db', (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../frontend/dist/index.html')));
+// 💾 API: Backup & Ripristino Database
+const upload = multer({ dest: 'uploads/' });
 
+app.get('/api/db/export', (req, res) => {
+  if (req.query.key !== process.env.ACCESS_KEY) return res.status(403).json({ error: 'Accesso negato' });
+  const dbPath = path.join(__dirname, 'warehouse.db');
+  if (fs.existsSync(dbPath)) {
+    res.download(dbPath, `warehouse_backup_${new Date().toISOString().slice(0,10)}.db`);
+  } else {
+    res.status(404).json({ error: 'Database non trovato' });
+  }
+});
+
+app.post('/api/db/import', upload.single('dbfile'), (req, res) => {
+  if (req.query.key !== process.env.ACCESS_KEY) return res.status(403).json({ error: 'Accesso negato' });
+  if (!req.file) return res.status(400).json({ error: 'Nessun file caricato' });
+  
+  try {
+    const dbPath = path.join(__dirname, 'warehouse.db');
+    // Sostituisce il DB corrente con il backup caricato
+    fs.copyFileSync(req.file.path, dbPath);
+    fs.unlinkSync(req.file.path); // Rimuove il file temporaneo
+    
+    res.json({ success: true, message: 'Backup caricato. Riavvio server in corso...' });
+    // Riavvia pulito il processo per caricare il nuovo DB da disco
+    setTimeout(() => process.exit(0), 800);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 🔄 Catch-all per SPA
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
+
+// 🚀 Avvio Server
 async function startServer() {
   await db.initDB();
   const PORT = process.env.PORT || 3000;
@@ -103,4 +144,8 @@ async function startServer() {
 }
 startServer();
 
-process.on('SIGTERM', () => { server.close(() => process.exit(0)); });
+// 🛑 Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('📴 Server in chiusura...');
+  server.close(() => process.exit(0));
+});
