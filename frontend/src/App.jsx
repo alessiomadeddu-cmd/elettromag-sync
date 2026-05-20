@@ -18,10 +18,10 @@ export default function App() {
   const [addDeptModal, setAddDeptModal] = useState({ isOpen: false, name: '' });
   const [delDeptModal, setDelDeptModal] = useState({ isOpen: false, deptId: '', label: '' });
   const [delOk, setDelOk] = useState(false);
+  const [deleteArtConfirm, setDeleteArtConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
   const sock = useRef(null);
 
-  // 🔌 Connessione Socket
   const connect = (key) => {
     const url = window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin;
     const s = io(url, { auth: { key }, reconnection: true, reconnectionDelay: 1000, transports: ['websocket', 'polling'] });
@@ -57,7 +57,6 @@ export default function App() {
     setData({ departments: [], articles: [], history: [] });
   };
 
-  // 📦 Gestione Transazioni
   const openModal = (type, deptId, artId) => {
     const art = data.articles[deptId]?.find(a => a.id === artId);
     setModal({
@@ -65,6 +64,7 @@ export default function App() {
       targetType: 'N', qty: '', customer: '', origin: '', descrizione: art?.descrizione || '',
       newQtyN: art?.qtyNuovo.toString() || '0', newQtyR: art?.qtyRigenerato.toString() || '0'
     });
+    setDeleteArtConfirm(false);
   };
 
   const confirmTx = () => {
@@ -83,25 +83,20 @@ export default function App() {
     } else {
       const q = parseInt(modal.qty);
       if (isNaN(q) || q <= 0 || (modal.type === 'unload' && !modal.customer.trim())) return alert('Quantità o cliente non validi');
-      if (modal.type === 'load') {
-        modal.targetType === 'N' ? dN = q : dR = q;
-      } else {
-        modal.targetType === 'N' ? dN = -q : dR = -q;
-      }
+      if (modal.type === 'load') modal.targetType === 'N' ? dN = q : dR = q;
+      else modal.targetType === 'N' ? dN = -q : dR = -q;
       hist.push({ desc: modal.descrizione, date: now, qty: q, customer: modal.customer.trim(), origin: modal.origin.trim(), tipo: modal.targetType === 'N' ? 'Nuovo' : 'Rigenerato', op: modal.type });
     }
 
-    sock.current?.emit('confirm_tx', { 
-      type: modal.type, artId: modal.articleId, 
-      newN: parseInt(modal.newQtyN) || 0, newR: parseInt(modal.newQtyR) || 0, 
-      deltaN: dN, deltaR: dR, history: hist 
-    });
+    sock.current?.emit('confirm_tx', { type: modal.type, artId: modal.articleId, newN: parseInt(modal.newQtyN)||0, newR: parseInt(modal.newQtyR)||0, deltaN: dN, deltaR: dR, history: hist });
     closeModal();
   };
 
-  const closeModal = () => setModal({ ...modal, isOpen: false });
+  const closeModal = () => {
+    setModal({ ...modal, isOpen: false });
+    setDeleteArtConfirm(false);
+  };
 
-  // 🏢 Gestione Reparti
   const addDept = () => {
     if (!addDeptModal.name.trim() || data.departments.some(x => x.label.toLowerCase() === addDeptModal.name.trim().toLowerCase())) return;
     const idx = data.departments.length;
@@ -122,42 +117,26 @@ export default function App() {
     setDelOk(false);
   };
 
-  // 🗄️ Reset Database
   const resetDb = async () => {
-    if (!window.confirm('⚠️ ATTENZIONE: Questo cancellerà TUTTI i dati (reparti, articoli, storico) e ripristinerà lo stato iniziale. Continuare?')) return;
+    if (!window.confirm('⚠️ ATTENZIONE: Questo cancellerà TUTTI i dati e ripristinerà lo stato iniziale. Continuare?')) return;
     setResetting(true);
     try {
       const key = authKey || localStorage.getItem('em_auth_key');
       const res = await fetch(`${window.location.origin}/api/reset-db?key=${key}`, { method: 'POST' });
       const result = await res.json();
-      if (result.success) {
-        alert('✅ Database resettato con successo!');
-        window.location.reload();
-      } else {
-        alert('❌ Errore: ' + (result.error || 'Sconosciuto'));
-      }
-    } catch (e) {
-      alert('❌ Errore di connessione: ' + e.message);
-    } finally {
-      setResetting(false);
-    }
+      if (result.success) { alert('✅ Database resettato!'); window.location.reload(); }
+      else alert('❌ Errore: ' + (result.error || 'Sconosciuto'));
+    } catch (e) { alert('❌ Errore di connessione: ' + e.message); }
+    finally { setResetting(false); }
   };
 
-  // 🔑 Login Screen
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
         <form onSubmit={handleLogin} className="bg-gray-800 p-8 rounded-2xl w-full max-w-sm border border-gray-700 shadow-xl">
           <div className="flex justify-center mb-6 text-4xl">⚡</div>
           <h2 className="text-2xl font-bold text-white text-center mb-6">Accesso Richiesto</h2>
-          <input
-            type="password"
-            value={authKey}
-            onChange={e => setAuthKey(e.target.value)}
-            placeholder="Chiave di accesso"
-            className="w-full p-3 bg-gray-700 text-white rounded-xl mb-4 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            autoFocus
-          />
+          <input type="password" value={authKey} onChange={e => setAuthKey(e.target.value)} placeholder="Chiave di accesso" className="w-full p-3 bg-gray-700 text-white rounded-xl mb-4 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
           <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition">Accedi</button>
         </form>
       </div>
@@ -166,27 +145,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-10">
+      <header className="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-10" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
         <div className="flex justify-between items-center max-w-4xl mx-auto">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚡</span>
-            <h1 className="text-xl font-bold">ElettroMag Sync</h1>
-          </div>
+          <div className="flex items-center gap-3"><span className="text-2xl">⚡</span><h1 className="text-xl font-bold">ElettroMag Sync</h1></div>
           <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'}`}>
-              {isOnline ? '🟢 Online' : '🔴 Sync...'}
-            </span>
-            <button onClick={() => setView('home')} className="p-2 hover:bg-gray-700 rounded-lg transition" title="Home">🏠</button>
-            <button onClick={() => setView('history')} className="p-2 hover:bg-gray-700 rounded-lg transition" title="Storico">📖</button>
-            <button onClick={() => setView('settings')} className="p-2 hover:bg-gray-700 rounded-lg transition" title="Impostazioni">⚙️</button>
-            <button onClick={logout} className="p-2 hover:bg-gray-700 rounded-lg transition text-red-400" title="Esci"><LogOut size={18}/></button>
+            <span className={`text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'}`}>{isOnline ? '🟢 Online' : '🔴 Sync...'}</span>
+            <button onClick={() => setView('home')} className="p-2 hover:bg-gray-700 rounded-lg transition">🏠</button>
+            <button onClick={() => setView('history')} className="p-2 hover:bg-gray-700 rounded-lg transition">📖</button>
+            <button onClick={() => setView('settings')} className="p-2 hover:bg-gray-700 rounded-lg transition">⚙️</button>
+            <button onClick={logout} className="p-2 hover:bg-gray-700 rounded-lg transition text-red-400"><LogOut size={18}/></button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 pb-20">
-        {/* HOME VIEW */}
+      <main className="max-w-4xl mx-auto p-4 pb-20" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
         {view === 'home' && (
           <div className="space-y-6">
             {data.departments.map(dept => {
@@ -195,10 +167,7 @@ export default function App() {
               const arts = data.articles[dept.id] || [];
               return (
                 <div key={dept.id} className={`${dept.color} rounded-2xl p-4 shadow-lg`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <Icon size={24} />
-                    <h2 className="text-xl font-bold">{dept.label}</h2>
-                  </div>
+                  <div className="flex items-center gap-3 mb-4"><Icon size={24} /><h2 className="text-xl font-bold">{dept.label}</h2></div>
                   {arts.length === 0 ? <p className="text-gray-200 opacity-80 italic">Nessun articolo</p> : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {arts.map(art => (
@@ -219,7 +188,6 @@ export default function App() {
           </div>
         )}
 
-        {/* HISTORY VIEW */}
         {view === 'history' && (
           <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
             <div className="p-4 border-b border-gray-700/50 font-bold text-lg">📖 Storico Movimenti</div>
@@ -245,14 +213,11 @@ export default function App() {
           </div>
         )}
 
-        {/* SETTINGS VIEW */}
         {view === 'settings' && (
           <div className="space-y-6">
             <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
               <h3 className="text-lg font-bold mb-4">🏢 Gestione Reparti</h3>
-              <button onClick={() => setAddDeptModal({ isOpen: true, name: '' })} className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl flex items-center justify-center gap-2 transition mb-4">
-                <Plus size={18}/> Nuovo Reparto
-              </button>
+              <button onClick={() => setAddDeptModal({ isOpen: true, name: '' })} className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl flex items-center justify-center gap-2 transition mb-4"><Plus size={18}/> Nuovo Reparto</button>
               <div className="space-y-2">
                 {data.departments.map(d => (
                   <div key={d.id} className="flex justify-between items-center bg-gray-900/50 p-3 rounded-xl">
@@ -262,15 +227,10 @@ export default function App() {
                 ))}
               </div>
             </div>
-
             <div className="bg-gray-800 rounded-2xl p-5 border border-red-900/50">
               <h3 className="text-lg font-bold text-red-400 mb-2">⚠️ Zona Pericolosa</h3>
               <p className="text-sm text-gray-400 mb-4">Il reset cancella tutti i dati e ripristina i reparti/articoli iniziali.</p>
-              <button
-                disabled={resetting}
-                onClick={resetDb}
-                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition ${resetting ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-red-900/60 text-red-200 hover:bg-red-900/80'}`}
-              >
+              <button disabled={resetting} onClick={resetDb} className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition ${resetting ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-red-900/60 text-red-200 hover:bg-red-900/80'}`}>
                 {resetting ? '⏳ Reset in corso...' : <><RotateCcw size={20}/> Reset Completo Database</>}
               </button>
             </div>
@@ -280,7 +240,7 @@ export default function App() {
 
       {/* MODALE TRANSAZIONI */}
       {modal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4" onClick={closeModal}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4" onClick={e => e.target === e.currentTarget && closeModal()}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4">{modal.type === 'load' ? '📥 Carico' : modal.type === 'unload' ? '📤 Scarico' : '🔄 Riallineamento'}</h3>
             <div className="space-y-3 mb-4">
@@ -288,23 +248,36 @@ export default function App() {
                 <>
                   <input type="number" value={modal.qty} onChange={e => setModal({...modal, qty: e.target.value})} placeholder="Quantità" className="w-full p-3 bg-gray-700 rounded-xl border border-gray-600" />
                   <select value={modal.targetType} onChange={e => setModal({...modal, targetType: e.target.value})} className="w-full p-3 bg-gray-700 rounded-xl border border-gray-600">
-                    <option value="N">Nuovo</option>
-                    <option value="R">Rigenerato</option>
+                    <option value="N">Nuovo</option><option value="R">Rigenerato</option>
                   </select>
                   {modal.type === 'unload' && <input type="text" value={modal.customer} onChange={e => setModal({...modal, customer: e.target.value})} placeholder="Cliente / Destinazione" className="w-full p-3 bg-gray-700 rounded-xl border border-gray-600" />}
                   {modal.type === 'load' && <input type="text" value={modal.origin} onChange={e => setModal({...modal, origin: e.target.value})} placeholder="Origine / Fornitore" className="w-full p-3 bg-gray-700 rounded-xl border border-gray-600" />}
                 </>
               )}
               {modal.type === 'realignment' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" value={modal.newQtyN} onChange={e => setModal({...modal, newQtyN: e.target.value})} placeholder="Qty Nuovo" className="w-full p-3 bg-gray-700 rounded-xl border border-gray-600" />
-                  <input type="number" value={modal.newQtyR} onChange={e => setModal({...modal, newQtyR: e.target.value})} placeholder="Qty Rigenerato" className="w-full p-3 bg-gray-700 rounded-xl border border-gray-600" />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="number" value={modal.newQtyN} onChange={e => setModal({...modal, newQtyN: e.target.value})} placeholder="Qty Nuovo" className="w-full p-3 bg-gray-700 rounded-xl border border-gray-600" />
+                    <input type="number" value={modal.newQtyR} onChange={e => setModal({...modal, newQtyR: e.target.value})} placeholder="Qty Rigenerato" className="w-full p-3 bg-gray-700 rounded-xl border border-gray-600" />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-red-400 cursor-pointer select-none" onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" checked={deleteArtConfirm} onChange={e => { e.stopPropagation(); setDeleteArtConfirm(e.target.checked); }} onClick={e => e.stopPropagation()} className="w-4 h-4 rounded border-gray-500 text-red-600 bg-gray-700" />
+                    Elimina questo articolo definitivamente
+                  </label>
                 </div>
               )}
             </div>
             <div className="flex gap-3">
               <button onClick={closeModal} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl">Annulla</button>
-              <button onClick={confirmTx} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold">Conferma</button>
+              <button 
+                onClick={deleteArtConfirm && modal.type === 'realignment' ? () => {
+                  sock.current?.emit('delete_art', { artId: modal.articleId, deptId: modal.deptId });
+                  closeModal();
+                } : confirmTx}
+                className={`flex-1 py-3 rounded-xl font-bold transition ${deleteArtConfirm && modal.type === 'realignment' ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+              >
+                {deleteArtConfirm && modal.type === 'realignment' ? '🗑️ Elimina Articolo' : 'Conferma'}
+              </button>
             </div>
           </div>
         </div>
@@ -312,7 +285,7 @@ export default function App() {
 
       {/* MODALE NUOVO REPARTO */}
       {addDeptModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4" onClick={() => setAddDeptModal({isOpen:false, name:''})}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4" onClick={e => e.target === e.currentTarget && setAddDeptModal({isOpen:false, name:''})}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4">➕ Nuovo Reparto</h3>
             <input type="text" value={addDeptModal.name} onChange={e => setAddDeptModal({...addDeptModal, name: e.target.value})} placeholder="Nome reparto" className="w-full p-3 bg-gray-700 rounded-xl border border-gray-600 mb-4" autoFocus />
@@ -324,46 +297,31 @@ export default function App() {
         </div>
       )}
 
-      {/* MODALE ELIMINA REPARTO (FIXATA) */}
+      {/* MODALE ELIMINA REPARTO (BLINDATA) */}
       {delDeptModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4" onClick={() => { setDelDeptModal({isOpen:false, deptId:'', label:''}); setDelOk(false); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4" onClick={e => e.target === e.currentTarget && setDelDeptModal({isOpen:false, deptId:'', label:''})}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-red-900/50 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-bold text-red-400 mb-3 flex items-center gap-2">
-              <AlertTriangle size={24} /> Elimina Reparto
-            </h3>
-            <p className="text-gray-300 mb-6">Sei sicuro di voler eliminare <strong className="text-white">"{delDeptModal.label}"</strong> e tutti i suoi articoli? L'operazione è irreversibile.</p>
-
-            <div className="flex items-center gap-3 mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-700">
+            <h3 className="text-xl font-bold text-red-400 mb-3 flex items-center gap-2"><AlertTriangle size={24} /> Elimina Reparto</h3>
+            <p className="text-gray-300 mb-6">Sei sicuro di voler eliminare <strong className="text-white">"{delDeptModal.label}"</strong> e tutti i suoi articoli?</p>
+            
+            <div className="flex items-center gap-3 mb-6 p-3 bg-gray-900/50 rounded-xl border border-gray-700">
               <input
                 type="checkbox"
-                id="confirm-delete"
+                id="confirm-delete-dept"
                 checked={delOk}
-                onChange={e => {
-                  e.stopPropagation(); // Impedisce la chiusura della modale
-                  setDelOk(e.target.checked);
-                }}
-                onClick={e => e.stopPropagation()} // Doppia sicurezza per click
+                onChange={e => { e.stopPropagation(); setDelOk(e.target.checked); }}
+                onClick={e => e.stopPropagation()}
+                onTouchStart={e => e.stopPropagation()}
                 className="w-5 h-5 rounded border-gray-500 text-red-600 focus:ring-red-500 bg-gray-700 cursor-pointer"
               />
-              <label htmlFor="confirm-delete" className="text-sm text-gray-200 cursor-pointer select-none">
+              <label htmlFor="confirm-delete-dept" className="text-sm text-gray-200 cursor-pointer select-none" onClick={e => e.stopPropagation()}>
                 Confermo la cancellazione definitiva
               </label>
             </div>
-
+            
             <div className="flex gap-3">
-              <button
-                onClick={() => { setDelDeptModal({isOpen:false, deptId:'', label:''}); setDelOk(false); }}
-                className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium transition"
-              >
-                Annulla
-              </button>
-              <button
-                disabled={!delOk}
-                onClick={delExec}
-                className={`flex-1 py-3 rounded-xl font-bold transition ${
-                  delOk ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30' : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
-              >
+              <button onClick={() => { setDelDeptModal({isOpen:false, deptId:'', label:''}); setDelOk(false); }} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium transition">Annulla</button>
+              <button disabled={!delOk} onClick={delExec} className={`flex-1 py-3 rounded-xl font-bold transition ${delOk ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}>
                 {delOk ? '✅ Elimina Ora' : 'Spunta per abilitare'}
               </button>
             </div>
