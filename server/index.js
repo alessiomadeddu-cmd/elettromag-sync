@@ -99,13 +99,11 @@ io.on('connection', (socket) => {
 
 // 🌐 Serve il frontend buildato come file statici
 // ✅ MODIFICA CHIAVE: punta a ../dist (nella root) invece di ../frontend/dist
-app.use(express.static(path.join(__dirname, '../dist')));
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Catch-all route: invia index.html per qualsiasi route (SPA)
 // ✅ MODIFICA CHIAVE: punta a ../dist/index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
+app.get('*', (_, res) => res.sendFile(path.join(__dirname, '../frontend/dist/index.html')));
 
 // Avvia server SOLO dopo che il DB è stato inizializzato
 async function startServer() {
