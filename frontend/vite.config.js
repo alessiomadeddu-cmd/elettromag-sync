@@ -3,7 +3,15 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  // Nessun proxy: il frontend si connetterà direttamente a http://localhost:3000 via Socket.IO
+  server: {
+    proxy: {
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true
+      }
+    }
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,

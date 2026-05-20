@@ -2,33 +2,13 @@
   "name": "elettromag-sync",
   "version": "2.0.0",
   "private": true,
-  "engines": {
-    "node": "18.x"
-  },
   "scripts": {
-    "build": "vite build --config frontend/vite.config.js --outDir dist",
-    "start": "node server/index.js",
-    "dev": "concurrently \"npm run start\" \"npm run dev:frontend\"",
-    "dev:frontend": "vite --config frontend/vite.config.js",
-    "heroku-postbuild": "npm run build"
-  },
-  "dependencies": {
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "socket.io": "^4.7.5",
-    "sql.js": "^1.10.0"
+    "install:all": "cd server && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "cd server && npm start",
+    "dev": "concurrently \"cd server && npm start\" \"cd frontend && npm run dev\""
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.4.19",
-    "concurrently": "^8.2.2",
-    "lucide-react": "^0.400.0",
-    "postcss": "^8.4.38",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "socket.io-client": "^4.7.5",
-    "tailwindcss": "^3.4.4",
-    "vite": "^5.3.1",
-    "terser": "^5.31.0"
+    "concurrently": "^8.2.2"
   }
 }
