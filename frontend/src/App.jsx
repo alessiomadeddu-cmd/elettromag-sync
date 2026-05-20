@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import {
   Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug,
-  Plus, Minus, History, Settings, LogOut, RotateCcw, Trash2, AlertTriangle, ArrowLeft
+  Plus, Minus, History, Settings, LogOut, RotateCcw, Trash2, AlertTriangle
 } from 'lucide-react';
 
 const ICON_NAMES = ['Radio', 'Zap', 'Sun', 'Shield', 'Package', 'Wrench', 'Lightbulb', 'Server', 'Battery', 'Plug'];
@@ -13,20 +13,15 @@ export default function App() {
   const [authKey, setAuthKey] = useState('');
   const [isOnline, setIsOnline] = useState(false);
   const [data, setData] = useState({ departments: [], articles: [], history: [] });
-  const [view, setView] = useState('home'); // home | history | settings
-  const [selectedDept, setSelectedDept] = useState(null);
-  
-  // Modali & Stati
+  const [view, setView] = useState('home');
   const [modal, setModal] = useState({ isOpen: false, type: '', deptId: '', articleId: '', targetType: 'N', qty: '', customer: '', origin: '', descrizione: '', newQtyN: '', newQtyR: '' });
   const [addDeptModal, setAddDeptModal] = useState({ isOpen: false, name: '' });
   const [delDeptModal, setDelDeptModal] = useState({ isOpen: false, deptId: '', label: '' });
   const [delOk, setDelOk] = useState(false);
   const [deleteArtConfirm, setDeleteArtConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
-  
   const sock = useRef(null);
 
-  // 🔌 Socket
   const connect = (key) => {
     const url = window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin;
     const s = io(url, { auth: { key }, reconnection: true, reconnectionDelay: 1000, transports: ['websocket', 'polling'] });
@@ -62,7 +57,6 @@ export default function App() {
     setData({ departments: [], articles: [], history: [] });
   };
 
-  // 📦 Transazioni
   const openModal = (type, deptId, artId) => {
     const art = data.articles.find(a => a.id === artId);
     setModal({
@@ -103,7 +97,6 @@ export default function App() {
     setDeleteArtConfirm(false);
   };
 
-  // 🏢 Reparti
   const addDept = () => {
     if (!addDeptModal.name.trim() || data.departments.some(x => x.label.toLowerCase() === addDeptModal.name.trim().toLowerCase())) return;
     const idx = data.departments.length;
@@ -124,7 +117,6 @@ export default function App() {
     setDelOk(false);
   };
 
-  // 🗄️ Reset
   const resetDb = async () => {
     if (!window.confirm('⚠️ ATTENZIONE: Questo cancellerà TUTTI i dati e ripristinerà lo stato iniziale. Continuare?')) return;
     setResetting(true);
@@ -153,106 +145,48 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* HEADER PULITO & iOS SAFE-AREA */}
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-4 sticky top-0 z-10" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚡</span>
-            <h1 className="text-lg font-bold tracking-wide">ElettroMag Sync</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-xs px-2 py-1 rounded-full font-medium ${isOnline ? 'bg-green-900/80 text-green-400' : 'bg-red-900/80 text-red-400'}`}>
-              {isOnline ? '🟢 Online' : '🔴 Sync...'}
-            </span>
-            <nav className="flex items-center gap-1">
-              <button onClick={() => { setView('home'); setSelectedDept(null); }} className={`p-2 rounded-lg transition ${view === 'home' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}>🏠</button>
-              <button onClick={() => setView('history')} className={`p-2 rounded-lg transition ${view === 'history' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}>📖</button>
-              <button onClick={() => setView('settings')} className={`p-2 rounded-lg transition ${view === 'settings' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}>⚙️</button>
-              <button onClick={logout} className="p-2 rounded-lg transition text-gray-400 hover:text-red-400" title="Esci"><LogOut size={18}/></button>
-            </nav>
+      {/* HEADER RC1.0.1 + iOS SAFE-AREA */}
+      <header className="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-10" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+        <div className="flex justify-between items-center max-w-4xl mx-auto">
+          <div className="flex items-center gap-3"><span className="text-2xl">⚡</span><h1 className="text-xl font-bold">ElettroMag Sync</h1></div>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'}`}>{isOnline ? '🟢 Online' : '🔴 Sync...'}</span>
+            <button onClick={() => setView('home')} className="p-2 hover:bg-gray-700 rounded-lg transition">🏠</button>
+            <button onClick={() => setView('history')} className="p-2 hover:bg-gray-700 rounded-lg transition">📖</button>
+            <button onClick={() => setView('settings')} className="p-2 hover:bg-gray-700 rounded-lg transition">⚙️</button>
+            <button onClick={logout} className="p-2 hover:bg-gray-700 rounded-lg transition text-red-400"><LogOut size={18}/></button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
-        
-        {/* 🏠 HOME VIEW */}
+      <main className="max-w-4xl mx-auto p-4 pb-20" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+        {/* 🏠 HOME VIEW (STRUTTURA RC1.0.1) */}
         {view === 'home' && (
-          <div className="space-y-4">
-            {!selectedDept ? (
-              <>
-                <h2 className="text-xl font-bold text-gray-300 mb-2">Reparti</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {data.departments.map(dept => {
-                    const iconMap = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
-                    const Icon = iconMap[dept.iconName] || Package;
-                    return (
-                      <button 
-                        key={dept.id} 
-                        onClick={() => setSelectedDept(dept.id)}
-                        className={`${dept.color} p-6 rounded-2xl shadow-lg flex items-center justify-between hover:scale-[1.02] transition active:scale-95 text-left`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <Icon size={28} />
-                          <span className="text-xl font-bold">{dept.label}</span>
+          <div className="space-y-6">
+            {data.departments.map(dept => {
+              const iconMap = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
+              const Icon = iconMap[dept.iconName] || Package;
+              const arts = data.articles.filter(a => a.dept_id === dept.id);
+              return (
+                <div key={dept.id} className={`${dept.color} rounded-2xl p-4 shadow-lg`}>
+                  <div className="flex items-center gap-3 mb-4"><Icon size={24} /><h2 className="text-xl font-bold">{dept.label}</h2></div>
+                  {arts.length === 0 ? <p className="text-gray-200 opacity-80 italic">Nessun articolo</p> : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {arts.map(art => (
+                        <div key={art.id} className="bg-gray-900/40 backdrop-blur rounded-xl p-3 flex justify-between items-center">
+                          <span className="font-medium truncate mr-2">{art.descrizione}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button onClick={() => openModal('load', dept.id, art.id)} className="bg-green-600 hover:bg-green-500 p-2 rounded-lg transition"><Plus size={16}/></button>
+                            <span className="text-xs bg-gray-800 px-2 py-1 rounded">N:{art.qtyNuovo} R:{art.qtyRigenerato}</span>
+                            <button onClick={() => openModal('unload', dept.id, art.id)} className="bg-red-600 hover:bg-red-500 p-2 rounded-lg transition"><Minus size={16}/></button>
+                          </div>
                         </div>
-                        <span className="text-sm bg-black/20 px-3 py-1 rounded-full">
-                          {data.articles.filter(a => a.dept_id === dept.id).length} articoli
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {data.departments.length === 0 && <p className="text-center text-gray-500 mt-10">Nessun reparto creato. Vai in Impostazioni per aggiungerne uno.</p>}
-              </>
-            ) : (
-              <>
-                {/* Dettaglio Reparto */}
-                <button onClick={() => setSelectedDept(null)} className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition">
-                  <ArrowLeft size={18} /> Torna ai reparti
-                </button>
-                {(() => {
-                  const dept = data.departments.find(d => d.id === selectedDept);
-                  if (!dept) return null;
-                  const arts = data.articles.filter(a => a.dept_id === selectedDept);
-                  return (
-                    <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-                      <div className={`${dept.color} p-5`}>
-                        <h2 className="text-2xl font-bold flex items-center gap-3">
-                          <span className="bg-white/20 p-2 rounded-lg">{(() => {
-                            const iconMap = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
-                            const Icon = iconMap[dept.iconName] || Package;
-                            return <Icon size={24} />;
-                          })()}</span>
-                          {dept.label}
-                        </h2>
-                      </div>
-                      <div className="p-4 space-y-3">
-                        {arts.length === 0 ? (
-                          <p className="text-center text-gray-400 py-6">Nessun articolo in questo reparto</p>
-                        ) : (
-                          arts.map(art => (
-                            <div key={art.id} className="bg-gray-700/50 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <span className="font-semibold text-lg">{art.descrizione}</span>
-                              <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                                <div className="flex gap-4 text-sm">
-                                  <span className="bg-gray-800 px-3 py-1 rounded-lg">Nuovo: <b>{art.qtyNuovo}</b></span>
-                                  <span className="bg-gray-800 px-3 py-1 rounded-lg">Rig.: <b>{art.qtyRigenerato}</b></span>
-                                </div>
-                                <div className="flex gap-2">
-                                  <button onClick={() => openModal('load', dept.id, art.id)} className="bg-green-600 hover:bg-green-500 p-2.5 rounded-xl transition"><Plus size={20}/></button>
-                                  <button onClick={() => openModal('unload', dept.id, art.id)} className="bg-red-600 hover:bg-red-500 p-2.5 rounded-xl transition"><Minus size={20}/></button>
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                      ))}
                     </div>
-                  );
-                })()}
-              </>
-            )}
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
