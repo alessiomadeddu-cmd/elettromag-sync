@@ -2,12 +2,15 @@
   "name": "elettromag-sync",
   "version": "2.0.0",
   "private": true,
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
-  "install:all": "cd server && npm install && cd ../frontend && npm install",
-  "build": "cd frontend && npm install && npm run build",
-  "start": "cd server && node index.js",
-  "dev": "concurrently \"cd server && npm start\" \"cd frontend && npm run dev\""
-}
+    "install:all": "cd server && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd server && node index.js",
+    "dev": "concurrently \"cd server && npm start\" \"cd frontend && npm run dev\""
+  },
   "devDependencies": {
     "concurrently": "^8.2.2"
   }
