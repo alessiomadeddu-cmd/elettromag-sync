@@ -21,7 +21,7 @@ export default function App() {
   const [delOk, setDelOk] = useState(false);
   const [delArtConfirm, setDelArtConfirm] = useState(false);
   const [editDeptModal, setEditDeptModal] = useState({ isOpen: false, deptId: '', currentLabel: '', newLabel: '' });
-  const [inventoryModal, setInventoryModal] = useState(false); // ✅ NUOVO STATO INVENTARIO
+  const [inventoryModal, setInventoryModal] = useState(false);
   const [holdProg, setHoldProg] = useState(0);
   const sock = useRef(null);
   const holdTimer = useRef(null);
@@ -223,7 +223,6 @@ export default function App() {
           <label className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition cursor-pointer">📥 Restore<input type="file" accept=".json" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/></label>
         </div>
         
-        {/* ✅ NUOVO PULSANTE GESTIONE INVENTARIO */}
         <button onClick={() => setInventoryModal(true)} className="w-full py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">
           <Wrench className="w-5 h-5"/> Gestione Inventario
         </button>
@@ -289,7 +288,6 @@ export default function App() {
         </div>
       )}
       
-      {/* ✅ MODALE GESTIONE INVENTARIO */}
       {inventoryModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={() => setInventoryModal(false)}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -304,7 +302,10 @@ export default function App() {
                 <div key={art.id} className="flex justify-between items-center p-3 bg-gray-900/50 rounded-xl border border-gray-700">
                   <span className="text-gray-200 truncate mr-3 text-sm font-medium">{art.descrizione}</span>
                   <button
-                    onClick={() => openModal(art.dept_id, art.id, 'realignment')}
+                    onClick={() => {
+                      setInventoryModal(false); // ✅ Chiude prima l'inventario
+                      openModal(art.dept_id, art.id, 'realignment'); // ✅ Apre riallineamento
+                    }}
                     className="p-2 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90"
                   >
                     <Settings className="w-4 h-4"/>
