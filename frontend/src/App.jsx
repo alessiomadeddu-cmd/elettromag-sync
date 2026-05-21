@@ -55,7 +55,7 @@ export default function App() {
     });
   };
 
-  // ✅ FIX SCROLL: lpEnd cancella il timer su qualsiasi movimento
+  // ✅ FIX SCROLL MOBILE: listener sul container + touch-pan-y
   const lpStart = (d, a) => { setPressId(a); lpTimer.current = setTimeout(() => { openModal(d, a, 'realignment'); setPressId(null); navigator.vibrate?.(100); }, 5000); };
   const lpEnd = () => { clearTimeout(lpTimer.current); setPressId(null); };
 
@@ -130,15 +130,18 @@ export default function App() {
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
             <div className="col-span-5">Descrizione</div><div className="col-span-2 text-center">N</div><div className="col-span-2 text-center">R</div><div className="col-span-3 text-right">Azioni</div>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          {/* ✅ FIX: Listener touch sul container + touch-pan-y previene conflitti scroll/long-press */}
+          <div 
+            className="flex-1 overflow-y-auto touch-pan-y" 
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+            onTouchMove={lpEnd} 
+            onTouchEnd={lpEnd} 
+            onTouchCancel={lpEnd}
+          >
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
-              /* ✅ FIX SCROLL: onTouchMove e onMouseMove cancellano il long-press */
-              <div key={i.id} className={`grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none ${pressId === i.id ? 'scale-[0.98] bg-amber-900/30 ring-2 ring-amber-500/50 rounded-lg' : ''}`} 
+              <div key={i.id} className={`grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 transition select-none ${pressId === i.id ? 'scale-[0.98] bg-amber-900/30 ring-2 ring-amber-500/50 rounded-lg' : 'hover:bg-gray-700/20'}`} 
                 onTouchStart={() => lpStart(selectedDept.id, i.id)} 
-                onTouchMove={lpEnd} 
-                onTouchEnd={lpEnd} 
                 onMouseDown={() => lpStart(selectedDept.id, i.id)} 
-                onMouseMove={lpEnd} 
                 onMouseUp={lpEnd} 
                 onMouseLeave={lpEnd}>
                 <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
@@ -223,7 +226,7 @@ export default function App() {
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={closeModal}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl max-h-[80vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
             <div className="flex justify-between mb-4">
-              {/* ✅ FIX: Mostra nome articolo anche nel riallineamento */}
+              {/* ✅ FIX: Nome articolo visibile in tutte le modali */}
               <h3 className="font-bold">
                 {modal.type==='load' ? `📥 Carico - ${modal.descrizione}` : 
                  modal.type==='unload' ? `📤 Scarico - ${modal.descrizione}` : 
