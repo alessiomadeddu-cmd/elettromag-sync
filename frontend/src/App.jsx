@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import {
   Settings, BookOpen, ArrowLeft, Radio, Zap, Sun, Shield,
-  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff
+  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff, Pencil
 } from 'lucide-react';
 
 const ICONS = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
@@ -20,8 +20,11 @@ export default function App() {
   const [delDeptModal, setDelDeptModal] = useState({ isOpen: false, deptId: '', label: '' });
   const [delOk, setDelOk] = useState(false);
   const [delArtConfirm, setDelArtConfirm] = useState(false);
+  const [editDeptModal, setEditDeptModal] = useState({ isOpen: false, deptId: '', currentLabel: '', newLabel: '' });
   const [holdProg, setHoldProg] = useState(0);
+  const [pressId, setPressId] = useState(null); // Per il long-press sulla matita
   const sock = useRef(null);
+  const lpTimer = useRef(null);
   const holdTimer = useRef(null);
 
   useEffect(() => {
@@ -50,6 +53,20 @@ export default function App() {
       st.articles.forEach(a => { (arts[a.dept_id] = arts[a.dept_id] || []).push(a); });
       setData({ ...st, articles: arts, departments: st.departments.map(d => ({ ...d, icon: ICONS[d.icon] || Package })) });
     });
+  };
+
+  // ✅ LONG-PRESS ISOLATO SUL PULSANTE MATITA
+  const startRealignmentPress = (deptId, artId) => {
+    setPressId(artId);
+    lpTimer.current = setTimeout(() => {
+      openModal(deptId, artId, 'realignment');
+      setPressId(null);
+      navigator.vibrate?.(50);
+    }, 5000);
+  };
+  const cancelRealignmentPress = () => {
+    clearTimeout(lpTimer.current);
+    setPressId(null);
   };
 
   const openModal = (d, a, t) => {
@@ -81,7 +98,9 @@ export default function App() {
     const now = new Date().toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const art = data.articles[modal.deptId]?.find(x => x.id === modal.articleId);
     let dN = 0, dR = 0, hist = [];
+
     if (modal.type === 'realignment') {
+      // ✅ Aggiorna nome articolo se modificato
       if (art && art.descrizione !== modal.descrizione.trim()) {
         sock.current.emit('update_art', { id: modal.articleId, descrizione: modal.descrizione.trim() });
       }
@@ -124,28 +143,29 @@ export default function App() {
         <div className={`flex items-center gap-3 p-4 rounded-xl ${selectedDept?.color} text-white shadow-md mb-3`}>{selectedDept && <selectedDept.icon className="w-8 h-8"/>}<h2 className="text-2xl font-bold">{selectedDept?.label}</h2></div>
         <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col">
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
-            <div className="col-span-1"></div>
-            <div className="col-span-5">Descrizione</div>
-            <div className="col-span-1 text-center">N</div>
-            <div className="col-span-1 text-center">R</div>
-            <div className="col-span-4 text-right">Azioni</div>
+            <div className="col-span-1"></div><div className="col-span-4">Descrizione</div><div className="col-span-2 text-center">N</div><div className="col-span-2 text-center">R</div><div className="col-span-3 text-right">Azioni</div>
           </div>
           <div className="flex-1 overflow-y-auto touch-pan-y">
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
               <div key={i.id} className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none">
-                {/* ✅ INGGRANAGGIO: Apre direttamente la modale di riallineamento */}
+                {/* ✅ PULSANTE MATITA A SINISTRA CON LONG-PRESS */}
                 <div className="col-span-1 flex justify-center">
                   <button 
-                    onClick={() => openModal(selectedDept.id, i.id, 'realignment')}
-                    className="p-1.5 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90"
+                    onTouchStart={(e) => { e.preventDefault(); startRealignmentPress(selectedDept.id, i.id); }}
+                    onTouchEnd={cancelRealignmentPress}
+                    onTouchCancel={cancelRealignmentPress}
+                    onMouseDown={() => startRealignmentPress(selectedDept.id, i.id)}
+                    onMouseUp={cancelRealignmentPress}
+                    onMouseLeave={cancelRealignmentPress}
+                    className={`p-1.5 rounded-lg transition ${pressId === i.id ? 'bg-amber-500/40 ring-2 ring-amber-400 text-amber-100' : 'text-white/60 hover:bg-white/10 hover:text-white'}`}
                   >
-                    <Settings className="w-4 h-4"/>
+                    <Pencil className="w-4 h-4"/>
                   </button>
                 </div>
-                <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
-                <div className={`col-span-1 text-center text-sm font-semibold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
-                <div className={`col-span-1 text-center text-sm font-semibold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
-                <div className="col-span-4 flex justify-end gap-2">
+                <div className="col-span-4 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
+                <div className={`col-span-2 text-center text-sm font-semibold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
+                <div className={`col-span-2 text-center text-sm font-semibold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
+                <div className="col-span-3 flex justify-end gap-2">
                   <button onClick={() => openModal(selectedDept.id, i.id, 'unload')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 active:scale-90"><Minus className="w-4 h-4"/></button>
                   <button onClick={() => openModal(selectedDept.id, i.id, 'load')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/30 hover:bg-green-900/50 border border-green-800 text-green-400 active:scale-90"><Plus className="w-4 h-4"/></button>
                 </div>
@@ -153,7 +173,7 @@ export default function App() {
             ))}
           </div>
         </div>
-        <div className="mt-2 flex justify-center items-center gap-2 text-xs text-gray-500"><Settings className="w-3.5 h-3.5"/><span>Tocca l'ingranaggio per riallineare o modificare l'articolo</span></div>
+        <div className="mt-2 flex justify-center items-center gap-2 text-xs text-gray-500"><RotateCcw className="w-3.5 h-3.5"/><span>Tieni premuto la matita 5s per riallineare</span></div>
         <button onClick={() => setAddModal({ isOpen: true, description: '' })} className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg flex items-center justify-center active:scale-95"><Plus className="w-7 h-7"/></button>
       </main>
     );
@@ -201,7 +221,7 @@ export default function App() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setEditDeptModal({ isOpen: true, deptId: d.id, currentLabel: d.label, newLabel: d.label })} className="text-blue-400 p-2 hover:text-blue-300 transition hover:bg-blue-900/30 rounded-lg">
-                <Settings className="w-5 h-5"/>
+                <Pencil className="w-5 h-5"/>
               </button>
               <button onClick={() => setDelDeptModal({ isOpen: true, deptId: d.id, label: d.label })} className="text-red-400 p-2 hover:text-red-300 transition hover:bg-red-900/30 rounded-lg">
                 <Trash2 className="w-5 h-5"/>
@@ -227,12 +247,13 @@ export default function App() {
               <h3 className="font-bold">
                 {modal.type==='load' ? `📥 Carico - ${modal.descrizione}` : 
                  modal.type==='unload' ? `📤 Scarico - ${modal.descrizione}` : 
-                 `⚙️ Riallineamento - ${modal.descrizione}`}
+                 `🔄 Riallineamento - ${modal.descrizione}`}
               </h3>
               <button onClick={closeModal}><X/></button>
             </div>
             {modal.type==='realignment'?(
               <>
+                {/* ✅ CAMPO MODIFICA NOME ARTICOLO */}
                 <div className="mb-3">
                   <label className="text-xs text-blue-400">Nome Articolo</label>
                   <input type="text" value={modal.descrizione} onChange={e=>setModal(p=>({...p, descrizione: e.target.value}))} className="w-full bg-gray-900 rounded-lg p-2 mt-1 border border-gray-700 text-white focus:ring-2 focus:ring-blue-500 outline-none"/>
