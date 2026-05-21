@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import {
   Settings, BookOpen, ArrowLeft, Radio, Zap, Sun, Shield,
-  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff
+  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff, Pencil
 } from 'lucide-react';
 
 const ICONS = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
@@ -125,33 +125,30 @@ export default function App() {
       <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-24">
         <div className={`flex items-center gap-3 p-4 rounded-xl ${selectedDept?.color} text-white shadow-md mb-3`}>{selectedDept && <selectedDept.icon className="w-8 h-8"/>}<h2 className="text-2xl font-bold">{selectedDept?.label}</h2></div>
         <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col">
-          {/* ✅ GRIGLIA CORRETTA A 12 COLONNE (1-4-2-2-3) */}
+          {/* ✅ GRIGLIA 12 COLONNE: 1(⚙️) + 5(Desc) + 2(N) + 2(R) + 2(Azioni) */}
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
             <div className="col-span-1 text-center">⚙️</div>
-            <div className="col-span-4">Descrizione</div>
+            <div className="col-span-5">Descrizione</div>
             <div className="col-span-2 text-center">N</div>
             <div className="col-span-2 text-center">R</div>
-            <div className="col-span-3 text-right">Azioni</div>
+            <div className="col-span-2 text-right">Azioni</div>
           </div>
           <div className="flex-1 overflow-y-auto touch-pan-y">
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
               <div key={i.id} className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none">
-                {/* ✅ INGRANAGGIO: CLICK DIRETTO (Niente più long-press) */}
+                {/* ✅ INGRANAGGIO: CLICK DIRETTO (Niente più timer) */}
                 <div className="col-span-1 flex justify-center">
-                  <button 
-                    onClick={() => openModal(selectedDept.id, i.id, 'realignment')}
-                    className="p-1.5 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90"
-                  >
+                  <button onClick={() => openModal(selectedDept.id, i.id, 'realignment')} className="p-1.5 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90">
                     <Settings className="w-4 h-4"/>
                   </button>
                 </div>
-                {/* ✅ DESCRIZIONE: col-span-4 */}
-                <div className="col-span-4 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
-                {/* ✅ QUANTITÀ: col-span-2 + font-bold per visibilità */}
+                {/* ✅ DESCRIZIONE */}
+                <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
+                {/* ✅ QUANTITÀ N & R: font-bold + text-base per visibilità garantita */}
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
-                {/* ✅ AZIONI: col-span-3 */}
-                <div className="col-span-3 flex justify-end gap-2">
+                {/* ✅ AZIONI */}
+                <div className="col-span-2 flex justify-end gap-2">
                   <button onClick={() => openModal(selectedDept.id, i.id, 'unload')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 active:scale-90"><Minus className="w-4 h-4"/></button>
                   <button onClick={() => openModal(selectedDept.id, i.id, 'load')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/30 hover:bg-green-900/50 border border-green-800 text-green-400 active:scale-90"><Plus className="w-4 h-4"/></button>
                 </div>
@@ -207,7 +204,7 @@ export default function App() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setEditDeptModal({ isOpen: true, deptId: d.id, currentLabel: d.label, newLabel: d.label })} className="text-blue-400 p-2 hover:text-blue-300 transition hover:bg-blue-900/30 rounded-lg">
-                <Settings className="w-5 h-5"/>
+                <Pencil className="w-5 h-5"/>
               </button>
               <button onClick={() => setDelDeptModal({ isOpen: true, deptId: d.id, label: d.label })} className="text-red-400 p-2 hover:text-red-300 transition hover:bg-red-900/30 rounded-lg">
                 <Trash2 className="w-5 h-5"/>
@@ -217,8 +214,8 @@ export default function App() {
         ))}
       </div><div className="space-y-3">
         <div className="flex gap-2">
-          <button onClick={async () => { try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`em_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Backup salvato in Download'); } catch(e){ alert('❌ ' + e.message); }}} className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">💾 Backup</button>
-          <label className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition cursor-pointer">📥 Restore<input type="file" accept=".json" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/></label>
+          <button onClick={async () => { try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`em_backup_${new Date().toISOString().slice(0,10)}.db`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Backup salvato in Download'); } catch(e){ alert('❌ ' + e.message); }}} className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">💾 Backup</button>
+          <label className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition cursor-pointer">📥 Restore<input type="file" accept=".db" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/></label>
         </div>
         <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-4 bg-red-900/50 text-red-200 rounded-xl flex gap-2 items-center justify-center"><WifiOff className="w-5 h-5"/>Disconnetti / Reset</button>
         <button onClick={() => setAddDeptModal({ isOpen: true, name: '' })} className="w-full py-4 bg-emerald-600 text-white rounded-xl flex gap-2 items-center justify-center"><Plus className="w-5 h-5"/>Nuovo Reparto</button>
@@ -307,26 +304,10 @@ export default function App() {
           <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4">✏️ Modifica Nome Reparto</h3>
             <p className="text-sm text-gray-400 mb-3">Attuale: <span className="text-white font-medium">{editDeptModal.currentLabel}</span></p>
-            <input 
-              type="text" 
-              value={editDeptModal.newLabel} 
-              onChange={e => setEditDeptModal(p => ({...p, newLabel: e.target.value}))} 
-              placeholder="Nuovo nome reparto" 
-              className="w-full p-3 bg-gray-900 rounded-xl border border-gray-600 mb-4 focus:ring-2 focus:ring-blue-500 outline-none" 
-              autoFocus 
-            />
+            <input type="text" value={editDeptModal.newLabel} onChange={e => setEditDeptModal(p => ({...p, newLabel: e.target.value}))} placeholder="Nuovo nome reparto" className="w-full p-3 bg-gray-900 rounded-xl border border-gray-600 mb-4 focus:ring-2 focus:ring-blue-500 outline-none" autoFocus/>
             <div className="flex gap-3">
               <button onClick={() => setEditDeptModal({isOpen:false, deptId:'', currentLabel:'', newLabel:''})} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl transition">Annulla</button>
-              <button 
-                onClick={() => {
-                  if (!editDeptModal.newLabel.trim()) return alert('Il nome non può essere vuoto');
-                  sock.current.emit('update_dept', { id: editDeptModal.deptId, label: editDeptModal.newLabel.trim() });
-                  setEditDeptModal({isOpen:false, deptId:'', currentLabel:'', newLabel:''});
-                }} 
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition"
-              >
-                Salva Modifiche
-              </button>
+              <button onClick={() => { if (!editDeptModal.newLabel.trim()) return alert('Il nome non può essere vuoto'); sock.current.emit('update_dept', { id: editDeptModal.deptId, label: editDeptModal.newLabel.trim() }); setEditDeptModal({isOpen:false, deptId:'', currentLabel:'', newLabel:''}); }} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition">Salva Modifiche</button>
             </div>
           </div>
         </div>
