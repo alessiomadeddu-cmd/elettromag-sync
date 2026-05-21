@@ -64,13 +64,11 @@ export default function App() {
   };
   const closeModal = () => setModal(p => ({ ...p, isOpen: false }));
   const closeAdd = () => setAddModal({ isOpen: false, description: '' });
-  
   const addArt = () => {
     if (!addModal.description.trim() || data.articles[selectedDept.id]?.some(x => x.descrizione.toLowerCase() === addModal.description.trim().toLowerCase())) return;
     sock.current.emit('add_art', { id: `a${Date.now()}`, deptId: selectedDept.id, descrizione: addModal.description.trim() });
     closeAdd();
   };
-
   const confirmTx = () => {
     const now = new Date().toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const art = data.articles[modal.deptId]?.find(x => x.id === modal.articleId);
@@ -91,7 +89,6 @@ export default function App() {
     sock.current.emit('confirm_tx', { type: modal.type, artId: modal.articleId, newN: parseInt(modal.newQtyN), newR: parseInt(modal.newQtyR), deltaN: dN, deltaR: dR, history: hist });
     closeModal();
   };
-
   const addDept = () => {
     if (!addDeptModal.name.trim() || data.departments.some(x => x.label.toLowerCase() === addDeptModal.name.trim().toLowerCase())) return;
     const idx = data.departments.length;
@@ -100,7 +97,6 @@ export default function App() {
     sock.current.emit('add_dept', nd);
     setAddDeptModal({ isOpen: false, name: '' });
   };
-
   const holdStart = () => {
     if (!delOk) return; setHoldProg(0); let e = 0;
     holdTimer.current = setInterval(() => { e += 50; setHoldProg(Math.min(e, 5000)); if (e >= 5000) { clearInterval(holdTimer.current); delExec(); } }, 50);
@@ -171,10 +167,12 @@ export default function App() {
       }</div></div></main>}
       
       {view === 'settings' && <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-4"><h2 className="text-xl font-bold mb-4">Impostazioni</h2><div className="flex-1 space-y-3 mb-4 overflow-y-auto">{data.departments.map(d => (<div key={d.id} className="flex justify-between p-4 bg-gray-800 rounded-xl border border-gray-700"><div className="flex gap-3 items-center"><div className={`w-10 h-10 ${d.color} rounded-lg flex items-center justify-center`}><d.icon className="w-5 h-5"/></div><span>{d.label}</span></div><button onClick={() => setDelDeptModal({ isOpen: true, deptId: d.id, label: d.label })} className="text-red-400 p-2"><Trash2 className="w-5 h-5"/></button></div>))}</div><div className="space-y-3">
+        {/* 💾 BACKUP & RESTORE AGGIORNATI (JSON per PostgreSQL) */}
         <div className="flex gap-2">
-          <button onClick={async () => { try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`backup_${new Date().toISOString().slice(0,10)}.db`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Salvato in Download'); } catch(e){ alert('❌ ' + e.message); }}} className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">💾 Backup</button>
-          <label className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition cursor-pointer">📥 Restore<input type="file" accept=".db" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/></label>
+          <button onClick={async () => { try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`em_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Backup salvato in Download'); } catch(e){ alert('❌ ' + e.message); }}} className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">💾 Backup</button>
+          <label className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition cursor-pointer">📥 Restore<input type="file" accept=".json" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/></label>
         </div>
+        
         <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-4 bg-red-900/50 text-red-200 rounded-xl flex gap-2 items-center justify-center"><WifiOff className="w-5 h-5"/>Disconnetti / Reset</button>
         <button onClick={() => setAddDeptModal({ isOpen: true, name: '' })} className="w-full py-4 bg-emerald-600 text-white rounded-xl flex gap-2 items-center justify-center"><Plus className="w-5 h-5"/>Nuovo Reparto</button>
       </div></main>}
@@ -187,22 +185,7 @@ export default function App() {
       
       {addDeptModal.isOpen && (<div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={()=>setAddDeptModal({isOpen:false,name:''})}><div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700"><h3 className="font-bold mb-3">📁 Nuovo Reparto</h3><input type="text" value={addDeptModal.name} onChange={e=>setAddDeptModal(p=>({...p,name:e.target.value}))} placeholder="Nome Reparto" className="w-full bg-gray-900 rounded-lg p-3 mb-4" autoFocus/><div className="flex gap-3"><button onClick={()=>setAddDeptModal({isOpen:false,name:''})} className="flex-1 py-3 bg-gray-700 rounded-xl">Annulla</button><button onClick={addDept} className="flex-1 py-3 bg-emerald-600 rounded-xl">Crea</button></div></div></div>)}
       
-      {delDeptModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={(e) => { if(e.target === e.currentTarget) { setDelDeptModal({isOpen:false,deptId:'',label:''}); setDelOk(false); setHoldProg(0); } }}>
-          <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-red-900/50" onClick={e => e.stopPropagation()}>
-            <h3 className="text-red-400 font-bold mb-2">⚠️ Elimina Reparto</h3>
-            <p className="text-sm text-gray-300 mb-4">Eliminare definitivamente "{delDeptModal.label}" e tutti i suoi articoli?</p>
-            <label className="flex gap-2 items-start mb-4 p-3 bg-gray-900/50 rounded-xl cursor-pointer" onClick={e => e.stopPropagation()}>
-              <input type="checkbox" checked={delOk} onChange={e => { e.stopPropagation(); setDelOk(e.target.checked); }} onClick={e => e.stopPropagation()} className="mt-1 w-5 h-5 text-red-500 rounded"/>
-              <span className="text-sm">Confermo la cancellazione definitiva</span>
-            </label>
-            <button disabled={!delOk} onMouseDown={holdStart} onMouseUp={holdStop} onMouseLeave={holdStop} onTouchStart={e=>{e.preventDefault();holdStart()}} onTouchEnd={holdStop} className={`w-full py-4 rounded-xl font-bold relative overflow-hidden ${delOk?'bg-red-600':'bg-gray-700 text-gray-500'}`}>
-              <div className="absolute left-0 top-0 h-full bg-red-800/50" style={{width:`${(holdProg/5000)*100}%`}}/>
-              <span className="relative z-10">{holdProg > 0 && holdProg < 5000 ? `Tieni premuto... ${(1-holdProg/5000).toFixed(1)}s` : 'Tieni premuto 5s'}</span>
-            </button>
-          </div>
-        </div>
-      )}
+      {delDeptModal.isOpen && (<div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={()=>{setDelDeptModal({isOpen:false,deptId:'',label:''});setDelOk(false);setHoldProg(0)}}><div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-red-900/50"><h3 className="text-red-400 font-bold mb-2">⚠️ Elimina Reparto</h3><p className="text-sm text-gray-300 mb-4">Eliminare definitivamente "{delDeptModal.label}" e tutti i suoi articoli?</p><label className="flex gap-2 items-start mb-4 p-3 bg-gray-900/50 rounded-xl cursor-pointer"><input type="checkbox" checked={delOk} onChange={e=>setDelOk(e.target.checked)} className="mt-1 w-5 h-5 text-red-500 rounded"/><span className="text-sm">Confermo la cancellazione definitiva</span></label><button disabled={!delOk} onMouseDown={holdStart} onMouseUp={holdStop} onMouseLeave={holdStop} onTouchStart={e=>{e.preventDefault();holdStart()}} onTouchEnd={holdStop} className={`w-full py-4 rounded-xl font-bold relative overflow-hidden ${delOk?'bg-red-600':'bg-gray-700 text-gray-500'}`}><div className="absolute left-0 top-0 h-full bg-red-800/50" style={{width:`${(holdProg/5000)*100}%`}}/><span className="relative z-10">{holdProg >0 &&holdProg <5000?`Tieni premuto... ${(1-holdProg/5000).toFixed(1)}s`:'Tieni premuto 5s'}</span></button></div></div>)}
     </div>
   );
 }
