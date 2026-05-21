@@ -125,7 +125,7 @@ export default function App() {
       <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-24">
         <div className={`flex items-center gap-3 p-4 rounded-xl ${selectedDept?.color} text-white shadow-md mb-3`}>{selectedDept && <selectedDept.icon className="w-8 h-8"/>}<h2 className="text-2xl font-bold">{selectedDept?.label}</h2></div>
         <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col">
-          {/* ✅ FIX GRIGLIA HEADER: 12 Colonne esatte (1-4-2-2-3) */}
+          {/* ✅ GRIGLIA CORRETTA A 12 COLONNE (1-4-2-2-3) */}
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
             <div className="col-span-1 text-center">⚙️</div>
             <div className="col-span-4">Descrizione</div>
@@ -133,13 +133,10 @@ export default function App() {
             <div className="col-span-2 text-center">R</div>
             <div className="col-span-3 text-right">Azioni</div>
           </div>
-          
           <div className="flex-1 overflow-y-auto touch-pan-y">
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
-              {/* ✅ FIX GRIGLIA RIGA: 12 Colonne esatte (1-4-2-2-3) */}
               <div key={i.id} className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none">
-                
-                {/* 1. Icona Ingranaggio */}
+                {/* ✅ INGRANAGGIO: CLICK DIRETTO (Niente più long-press) */}
                 <div className="col-span-1 flex justify-center">
                   <button 
                     onClick={() => openModal(selectedDept.id, i.id, 'realignment')}
@@ -148,17 +145,12 @@ export default function App() {
                     <Settings className="w-4 h-4"/>
                   </button>
                 </div>
-                
-                {/* 2. Descrizione */}
+                {/* ✅ DESCRIZIONE: col-span-4 */}
                 <div className="col-span-4 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
-                
-                {/* 3. Quantità N (Resa più visibile con font-bold) */}
+                {/* ✅ QUANTITÀ: col-span-2 + font-bold per visibilità */}
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
-                
-                {/* 4. Quantità R (Resa più visibile con font-bold) */}
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
-                
-                {/* 5. Azioni */}
+                {/* ✅ AZIONI: col-span-3 */}
                 <div className="col-span-3 flex justify-end gap-2">
                   <button onClick={() => openModal(selectedDept.id, i.id, 'unload')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 active:scale-90"><Minus className="w-4 h-4"/></button>
                   <button onClick={() => openModal(selectedDept.id, i.id, 'load')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/30 hover:bg-green-900/50 border border-green-800 text-green-400 active:scale-90"><Plus className="w-4 h-4"/></button>
