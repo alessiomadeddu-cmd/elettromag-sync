@@ -37,6 +37,7 @@ io.on('connection', async (socket) => {
     } catch (e) { console.error('❌ Errore eliminazione reparto:', e.message); }
   });
 
+  // ✅ NUOVO: Aggiornamento nome reparto
   socket.on('update_dept', async ({ id, label }) => {
     try {
       await db.exec('UPDATE departments SET label = $1 WHERE id = $2', [label, id]);
