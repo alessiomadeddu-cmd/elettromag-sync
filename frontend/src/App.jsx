@@ -20,7 +20,7 @@ export default function App() {
   const [delDeptModal, setDelDeptModal] = useState({ isOpen: false, deptId: '', label: '' });
   const [delOk, setDelOk] = useState(false);
   const [delArtConfirm, setDelArtConfirm] = useState(false);
-  const [editDeptModal, setEditDeptModal] = useState({ isOpen: false, deptId: '', currentLabel: '', newLabel: '' }); // ✅ STATO MODIFICA
+  const [editDeptModal, setEditDeptModal] = useState({ isOpen: false, deptId: '', currentLabel: '', newLabel: '' });
   const [holdProg, setHoldProg] = useState(0);
   const [pressId, setPressId] = useState(null);
   const sock = useRef(null);
@@ -55,6 +55,7 @@ export default function App() {
     });
   };
 
+  // ✅ FIX SCROLL: lpEnd cancella il timer su qualsiasi movimento
   const lpStart = (d, a) => { setPressId(a); lpTimer.current = setTimeout(() => { openModal(d, a, 'realignment'); setPressId(null); navigator.vibrate?.(100); }, 5000); };
   const lpEnd = () => { clearTimeout(lpTimer.current); setPressId(null); };
 
@@ -131,7 +132,15 @@ export default function App() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
-              <div key={i.id} className={`grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none ${pressId === i.id ? 'scale-[0.98] bg-amber-900/30 ring-2 ring-amber-500/50 rounded-lg' : ''}`} onTouchStart={() => lpStart(selectedDept.id, i.id)} onTouchEnd={lpEnd} onMouseDown={() => lpStart(selectedDept.id, i.id)} onMouseUp={lpEnd} onMouseLeave={lpEnd}>
+              /* ✅ FIX SCROLL: onTouchMove e onMouseMove cancellano il long-press */
+              <div key={i.id} className={`grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none ${pressId === i.id ? 'scale-[0.98] bg-amber-900/30 ring-2 ring-amber-500/50 rounded-lg' : ''}`} 
+                onTouchStart={() => lpStart(selectedDept.id, i.id)} 
+                onTouchMove={lpEnd} 
+                onTouchEnd={lpEnd} 
+                onMouseDown={() => lpStart(selectedDept.id, i.id)} 
+                onMouseMove={lpEnd} 
+                onMouseUp={lpEnd} 
+                onMouseLeave={lpEnd}>
                 <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
                 <div className={`col-span-2 text-center text-sm font-semibold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
                 <div className={`col-span-2 text-center text-sm font-semibold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
@@ -190,14 +199,9 @@ export default function App() {
               <span>{d.label}</span>
             </div>
             <div className="flex gap-2">
-              {/* ✅ Pulsante Modifica (Matita) */}
-              <button 
-                onClick={() => setEditDeptModal({ isOpen: true, deptId: d.id, currentLabel: d.label, newLabel: d.label })} 
-                className="text-blue-400 p-2 hover:text-blue-300 transition hover:bg-blue-900/30 rounded-lg"
-              >
+              <button onClick={() => setEditDeptModal({ isOpen: true, deptId: d.id, currentLabel: d.label, newLabel: d.label })} className="text-blue-400 p-2 hover:text-blue-300 transition hover:bg-blue-900/30 rounded-lg">
                 <Pencil className="w-5 h-5"/>
               </button>
-              {/* Pulsante Elimina */}
               <button onClick={() => setDelDeptModal({ isOpen: true, deptId: d.id, label: d.label })} className="text-red-400 p-2 hover:text-red-300 transition hover:bg-red-900/30 rounded-lg">
                 <Trash2 className="w-5 h-5"/>
               </button>
@@ -219,7 +223,12 @@ export default function App() {
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={closeModal}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl max-h-[80vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
             <div className="flex justify-between mb-4">
-              <h3 className="font-bold">{modal.type==='load'?`📥 Carico - ${modal.descrizione}`:modal.type==='unload'?`📤 Scarico - ${modal.descrizione}`:'🔄 Riallineamento'}</h3>
+              {/* ✅ FIX: Mostra nome articolo anche nel riallineamento */}
+              <h3 className="font-bold">
+                {modal.type==='load' ? `📥 Carico - ${modal.descrizione}` : 
+                 modal.type==='unload' ? `📤 Scarico - ${modal.descrizione}` : 
+                 `🔄 Riallineamento - ${modal.descrizione}`}
+              </h3>
               <button onClick={closeModal}><X/></button>
             </div>
             {modal.type==='realignment'?(
@@ -283,7 +292,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ✅ MODALE MODIFICA REPARTO */}
       {editDeptModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4" onClick={() => setEditDeptModal({isOpen:false, deptId:'', currentLabel:'', newLabel:''})}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
