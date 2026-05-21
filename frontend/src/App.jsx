@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import {
   Settings, BookOpen, ArrowLeft, Radio, Zap, Sun, Shield,
-  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff
+  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff, Pencil
 } from 'lucide-react';
 
 const ICONS = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
@@ -19,7 +19,7 @@ export default function App() {
   const [addDeptModal, setAddDeptModal] = useState({ isOpen: false, name: '' });
   const [delDeptModal, setDelDeptModal] = useState({ isOpen: false, deptId: '', label: '' });
   const [delOk, setDelOk] = useState(false);
-  const [delArtConfirm, setDelArtConfirm] = useState(false);
+  const [delArtConfirm, setDelArtConfirm] = useState(false); // ✅ CHECKBOX MANTENUTA
   const [editDeptModal, setEditDeptModal] = useState({ isOpen: false, deptId: '', currentLabel: '', newLabel: '' });
   const [inventoryModal, setInventoryModal] = useState(false);
   const [holdProg, setHoldProg] = useState(0);
@@ -54,7 +54,6 @@ export default function App() {
     });
   };
 
-  // ✅ Lista piatta di tutti gli articoli per l'inventario
   const allArticles = useMemo(() => {
     const flat = [];
     for (const [deptId, arts] of Object.entries(data.articles)) {
@@ -66,7 +65,7 @@ export default function App() {
   const openModal = (d, a, t) => {
     const art = data.articles[d]?.find(x => x.id === a);
     if (!art) return;
-    setDelArtConfirm(false);
+    setDelArtConfirm(false); // ✅ Reset checkbox all'apertura
     setModal({ isOpen: true, type: t, deptId: d, articleId: a, descrizione: art.descrizione, qty: '1', customer: '', origin: '', targetType: 'N', newQtyN: String(art.qtyNuovo), newQtyR: String(art.qtyRigenerato) });
   };
 
@@ -83,9 +82,10 @@ export default function App() {
   };
 
   const confirmTx = () => {
+    // ✅ LOGICA ELIMINAZIONE CON CHECKBOX
     if (delArtConfirm && modal.type === 'realignment') {
       sock.current.emit('delete_art', { artId: modal.articleId, deptId: modal.deptId });
-      closeModal();
+      closeModal(); // ✅ CHIUSURA AUTOMATICA GARANTITA
       return;
     }
 
@@ -254,6 +254,7 @@ export default function App() {
                   <div><label className="text-xs text-green-400">Nuovo</label><input type="number" value={modal.newQtyN} onChange={e=>setModal(p=>({...p,newQtyN:e.target.value}))} className="w-full bg-gray-900 rounded-lg p-2 mt-1"/></div>
                   <div><label className="text-xs text-yellow-400">Rigenerato</label><input type="number" value={modal.newQtyR} onChange={e=>setModal(p=>({...p,newQtyR:e.target.value}))} className="w-full bg-gray-900 rounded-lg p-2 mt-1"/></div>
                 </div>
+                {/* ✅ CHECKBOX ELIMINAZIONE ARTICOLO */}
                 <label className="flex gap-2 items-center mb-4 p-3 bg-gray-900/50 rounded-xl cursor-pointer text-red-400" onClick={e=>e.stopPropagation()}>
                   <input type="checkbox" checked={delArtConfirm} onChange={e=>{e.stopPropagation();setDelArtConfirm(e.target.checked);}} onClick={e=>e.stopPropagation()} className="w-5 h-5 text-red-500 rounded"/>
                   <span className="text-sm">Elimina questo articolo definitivamente</span>
@@ -277,6 +278,7 @@ export default function App() {
             )}
             <div className="flex gap-3 mt-4">
               <button onClick={closeModal} className="flex-1 py-3 bg-gray-700 rounded-xl">Annulla</button>
+              {/* ✅ PULSANTE DINAMICO */}
               <button 
                 onClick={confirmTx} 
                 className={`flex-1 py-3 rounded-xl ${delArtConfirm && modal.type === 'realignment' ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
@@ -303,8 +305,8 @@ export default function App() {
                   <span className="text-gray-200 truncate mr-3 text-sm font-medium">{art.descrizione}</span>
                   <button
                     onClick={() => {
-                      setInventoryModal(false); // ✅ Chiude prima l'inventario
-                      openModal(art.dept_id, art.id, 'realignment'); // ✅ Apre riallineamento
+                      setInventoryModal(false);
+                      openModal(art.dept_id, art.id, 'realignment');
                     }}
                     className="p-2 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90"
                   >
