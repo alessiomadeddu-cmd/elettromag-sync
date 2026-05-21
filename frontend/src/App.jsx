@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import {
   Settings, BookOpen, ArrowLeft, Radio, Zap, Sun, Shield,
-  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff, Pencil
+  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff
 } from 'lucide-react';
 
 const ICONS = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
@@ -19,7 +19,7 @@ export default function App() {
   const [addDeptModal, setAddDeptModal] = useState({ isOpen: false, name: '' });
   const [delDeptModal, setDelDeptModal] = useState({ isOpen: false, deptId: '', label: '' });
   const [delOk, setDelOk] = useState(false);
-  const [delArtConfirm, setDelArtConfirm] = useState(false); // ✅ CHECKBOX MANTENUTA
+  const [delArtConfirm, setDelArtConfirm] = useState(false);
   const [editDeptModal, setEditDeptModal] = useState({ isOpen: false, deptId: '', currentLabel: '', newLabel: '' });
   const [inventoryModal, setInventoryModal] = useState(false);
   const [holdProg, setHoldProg] = useState(0);
@@ -65,7 +65,7 @@ export default function App() {
   const openModal = (d, a, t) => {
     const art = data.articles[d]?.find(x => x.id === a);
     if (!art) return;
-    setDelArtConfirm(false); // ✅ Reset checkbox all'apertura
+    setDelArtConfirm(false);
     setModal({ isOpen: true, type: t, deptId: d, articleId: a, descrizione: art.descrizione, qty: '1', customer: '', origin: '', targetType: 'N', newQtyN: String(art.qtyNuovo), newQtyR: String(art.qtyRigenerato) });
   };
 
@@ -82,10 +82,9 @@ export default function App() {
   };
 
   const confirmTx = () => {
-    // ✅ LOGICA ELIMINAZIONE CON CHECKBOX
     if (delArtConfirm && modal.type === 'realignment') {
       sock.current.emit('delete_art', { artId: modal.articleId, deptId: modal.deptId });
-      closeModal(); // ✅ CHIUSURA AUTOMATICA GARANTITA
+      closeModal();
       return;
     }
 
@@ -135,25 +134,23 @@ export default function App() {
       <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-24">
         <div className={`flex items-center gap-3 p-4 rounded-xl ${selectedDept?.color} text-white shadow-md mb-3`}>{selectedDept && <selectedDept.icon className="w-8 h-8"/>}<h2 className="text-2xl font-bold">{selectedDept?.label}</h2></div>
         <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col">
+          {/* ✅ GRIGLIA RIPRISTINATA: 5+2+2+3 = 12 colonne */}
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
-            <div className="col-span-1 text-center">⚙️</div>
             <div className="col-span-5">Descrizione</div>
             <div className="col-span-2 text-center">N</div>
             <div className="col-span-2 text-center">R</div>
-            <div className="col-span-2 text-right">Azioni</div>
+            <div className="col-span-3 text-right">Azioni</div>
           </div>
           <div className="flex-1 overflow-y-auto touch-pan-y">
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
               <div key={i.id} className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none">
-                <div className="col-span-1 flex justify-center">
-                  <button onClick={() => openModal(selectedDept.id, i.id, 'realignment')} className="p-1.5 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90">
-                    <Settings className="w-4 h-4"/>
-                  </button>
-                </div>
+                {/* ✅ Descrizione ampliata */}
                 <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
+                {/* ✅ Quantità in evidenza */}
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
-                <div className="col-span-2 flex justify-end gap-2">
+                {/* ✅ Pulsanti +/- */}
+                <div className="col-span-3 flex justify-end gap-2">
                   <button onClick={() => openModal(selectedDept.id, i.id, 'unload')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 active:scale-90"><Minus className="w-4 h-4"/></button>
                   <button onClick={() => openModal(selectedDept.id, i.id, 'load')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/30 hover:bg-green-900/50 border border-green-800 text-green-400 active:scale-90"><Plus className="w-4 h-4"/></button>
                 </div>
@@ -161,7 +158,10 @@ export default function App() {
             ))}
           </div>
         </div>
-        <div className="mt-2 flex justify-center items-center gap-2 text-xs text-gray-500"><Settings className="w-3.5 h-3.5"/><span>Tocca l'ingranaggio per modificare o riallineare</span></div>
+        <div className="mt-2 flex justify-center items-center gap-2 text-xs text-gray-500">
+          <Settings className="w-3.5 h-3.5"/>
+          <span>Usa Gestione Inventario per modificare/riallineare</span>
+        </div>
         <button onClick={() => setAddModal({ isOpen: true, description: '' })} className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg flex items-center justify-center active:scale-95"><Plus className="w-7 h-7"/></button>
       </main>
     );
@@ -254,7 +254,6 @@ export default function App() {
                   <div><label className="text-xs text-green-400">Nuovo</label><input type="number" value={modal.newQtyN} onChange={e=>setModal(p=>({...p,newQtyN:e.target.value}))} className="w-full bg-gray-900 rounded-lg p-2 mt-1"/></div>
                   <div><label className="text-xs text-yellow-400">Rigenerato</label><input type="number" value={modal.newQtyR} onChange={e=>setModal(p=>({...p,newQtyR:e.target.value}))} className="w-full bg-gray-900 rounded-lg p-2 mt-1"/></div>
                 </div>
-                {/* ✅ CHECKBOX ELIMINAZIONE ARTICOLO */}
                 <label className="flex gap-2 items-center mb-4 p-3 bg-gray-900/50 rounded-xl cursor-pointer text-red-400" onClick={e=>e.stopPropagation()}>
                   <input type="checkbox" checked={delArtConfirm} onChange={e=>{e.stopPropagation();setDelArtConfirm(e.target.checked);}} onClick={e=>e.stopPropagation()} className="w-5 h-5 text-red-500 rounded"/>
                   <span className="text-sm">Elimina questo articolo definitivamente</span>
@@ -278,7 +277,6 @@ export default function App() {
             )}
             <div className="flex gap-3 mt-4">
               <button onClick={closeModal} className="flex-1 py-3 bg-gray-700 rounded-xl">Annulla</button>
-              {/* ✅ PULSANTE DINAMICO */}
               <button 
                 onClick={confirmTx} 
                 className={`flex-1 py-3 rounded-xl ${delArtConfirm && modal.type === 'realignment' ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
