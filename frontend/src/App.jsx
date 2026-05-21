@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import {
   Settings, BookOpen, ArrowLeft, Radio, Zap, Sun, Shield,
-  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff, Pencil
+  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff
 } from 'lucide-react';
 
 const ICONS = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
@@ -53,11 +53,6 @@ export default function App() {
     });
   };
 
-  // ✅ APRE DIRETTAMENTE IL RIALLINEAMENTO (Niente più timer)
-  const openRealignment = (d, a) => {
-    openModal(d, a, 'realignment');
-  };
-
   const openModal = (d, a, t) => {
     const art = data.articles[d]?.find(x => x.id === a);
     if (!art) return;
@@ -78,7 +73,6 @@ export default function App() {
   };
 
   const confirmTx = () => {
-    // ✅ LOGICA ELIMINA ARTICOLO
     if (delArtConfirm && modal.type === 'realignment') {
       sock.current.emit('delete_art', { artId: modal.articleId, deptId: modal.deptId });
       closeModal();
@@ -90,7 +84,6 @@ export default function App() {
     let dN = 0, dR = 0, hist = [];
 
     if (modal.type === 'realignment') {
-      // ✅ SALVA IL NUOVO NOME SE MODIFICATO
       if (art && art.descrizione !== modal.descrizione.trim()) {
         sock.current.emit('update_art', { id: modal.articleId, descrizione: modal.descrizione.trim() });
       }
@@ -133,12 +126,12 @@ export default function App() {
         <div className={`flex items-center gap-3 p-4 rounded-xl ${selectedDept?.color} text-white shadow-md mb-3`}>{selectedDept && <selectedDept.icon className="w-8 h-8"/>}<h2 className="text-2xl font-bold">{selectedDept?.label}</h2></div>
         <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col">
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
-            {/* ✅ Griglia ottimizzata: più spazio alla descrizione (5), quantità compatte (1) */}
+            {/* ✅ Griglia Corretta: Icon(1) - Desc(4) - N(2) - R(2) - Azioni(3) = 12 */}
             <div className="col-span-1 text-center">⚙️</div>
-            <div className="col-span-5">Descrizione</div>
-            <div className="col-span-1 text-center">N</div>
-            <div className="col-span-1 text-center">R</div>
-            <div className="col-span-4 text-right">Azioni</div>
+            <div className="col-span-4">Descrizione</div>
+            <div className="col-span-2 text-center">N</div>
+            <div className="col-span-2 text-center">R</div>
+            <div className="col-span-3 text-right">Azioni</div>
           </div>
           <div className="flex-1 overflow-y-auto touch-pan-y">
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
@@ -146,16 +139,19 @@ export default function App() {
                 {/* ✅ Ingranaggio: Click diretto per aprire riallineamento */}
                 <div className="col-span-1 flex justify-center">
                   <button 
-                    onClick={() => openRealignment(selectedDept.id, i.id)}
+                    onClick={() => openModal(selectedDept.id, i.id, 'realignment')}
                     className="p-1.5 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90"
                   >
                     <Settings className="w-4 h-4"/>
                   </button>
                 </div>
-                <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
-                <div className={`col-span-1 text-center text-sm font-semibold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
-                <div className={`col-span-1 text-center text-sm font-semibold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
-                <div className="col-span-4 flex justify-end gap-2">
+                {/* ✅ Descrizione: col-span-4 per dare spazio */}
+                <div className="col-span-4 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
+                {/* ✅ Quantità: col-span-2 ben visibili */}
+                <div className={`col-span-2 text-center text-sm font-semibold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
+                <div className={`col-span-2 text-center text-sm font-semibold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
+                {/* ✅ Azioni: col-span-3 */}
+                <div className="col-span-3 flex justify-end gap-2">
                   <button onClick={() => openModal(selectedDept.id, i.id, 'unload')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 active:scale-90"><Minus className="w-4 h-4"/></button>
                   <button onClick={() => openModal(selectedDept.id, i.id, 'load')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/30 hover:bg-green-900/50 border border-green-800 text-green-400 active:scale-90"><Plus className="w-4 h-4"/></button>
                 </div>
@@ -211,7 +207,7 @@ export default function App() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setEditDeptModal({ isOpen: true, deptId: d.id, currentLabel: d.label, newLabel: d.label })} className="text-blue-400 p-2 hover:text-blue-300 transition hover:bg-blue-900/30 rounded-lg">
-                <Pencil className="w-5 h-5"/>
+                <Settings className="w-5 h-5"/>
               </button>
               <button onClick={() => setDelDeptModal({ isOpen: true, deptId: d.id, label: d.label })} className="text-red-400 p-2 hover:text-red-300 transition hover:bg-red-900/30 rounded-lg">
                 <Trash2 className="w-5 h-5"/>
@@ -243,7 +239,6 @@ export default function App() {
             </div>
             {modal.type==='realignment'?(
               <>
-                {/* ✅ CAMPO PER MODIFICARE IL NOME ARTICOLO */}
                 <div className="mb-3">
                   <label className="text-xs text-blue-400">Nome Articolo</label>
                   <input type="text" value={modal.descrizione} onChange={e=>setModal(p=>({...p, descrizione: e.target.value}))} className="w-full bg-gray-900 rounded-lg p-2 mt-1 border border-gray-700 text-white focus:ring-2 focus:ring-blue-500 outline-none"/>
