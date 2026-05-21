@@ -49,6 +49,14 @@ io.on('connection', async (socket) => {
     io.emit('state_sync', await db.getState());
   });
 
+  // ✅ NUOVO: Aggiornamento nome articolo
+  socket.on('update_art', async ({ id, descrizione }) => {
+    try {
+      await db.exec('UPDATE articles SET descrizione = $1 WHERE id = $2', [descrizione, id]);
+      io.emit('state_sync', await db.getState());
+    } catch (e) { console.error('❌ Errore aggiornamento articolo:', e.message); }
+  });
+
   socket.on('delete_art', async ({ artId }) => {
     try {
       await db.exec('DELETE FROM articles WHERE id = $1', [artId]);
@@ -75,7 +83,6 @@ io.on('connection', async (socket) => {
 
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-// 🗄️ Reset DB
 app.post('/api/reset-db', async (req, res) => {
   if (req.query.key !== process.env.ACCESS_KEY) return res.status(403).json({ error: 'Accesso negato' });
   try {
@@ -87,7 +94,6 @@ app.post('/api/reset-db', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 💾 Backup & Restore (JSON)
 const upload = multer({ dest: 'uploads/' });
 
 app.get('/api/db/export', async (req, res) => {
