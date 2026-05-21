@@ -1,13 +1,15 @@
 // server/db.js
 const { Pool } = require('pg');
 
+// Configurazione connessione sicura per Neon/Render
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Necessario per Neon/Render
+  ssl: { rejectUnauthorized: false }
 });
 
 module.exports = {
   initDB: async () => {
+    // Crea le tabelle se non esistono
     const tables = `
       CREATE TABLE IF NOT EXISTS departments (id TEXT PRIMARY KEY, label TEXT NOT NULL, icon TEXT NOT NULL, color TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS articles (id TEXT PRIMARY KEY, dept_id TEXT NOT NULL REFERENCES departments(id), descrizione TEXT NOT NULL, qtyNuovo INTEGER DEFAULT 0, qtyRigenerato INTEGER DEFAULT 0);
@@ -15,7 +17,7 @@ module.exports = {
     `;
     await pool.query(tables);
 
-    // Seed iniziale se vuoto
+    // Seed iniziale (solo se il DB è vuoto)
     const { rows } = await pool.query('SELECT COUNT(*) FROM departments');
     if (parseInt(rows[0].count) === 0) {
       await pool.query(`
@@ -23,21 +25,18 @@ module.exports = {
         INSERT INTO articles (id, dept_id, descrizione) VALUES ('a1','antenne','Antenna DVB-T2'), ('e1','elettrico','Cavo 2x1.5mm');
       `);
     }
-    console.log('✅ Database PostgreSQL inizializzato e pronto');
+    console.log('✅ Database PostgreSQL inizializzato');
   },
-  exec: async (text, params = []) => {
-    await pool.query(text, params);
-  },
-  run: async (text, params = []) => {
+  exec: async (text, params) => {
     await pool.query(text, params);
   },
   getState: async () => {
     const [depts, arts, hist] = await Promise.all([
-      pool.query('SELECT * FROM departments ORDER BY id'),
-      pool.query('SELECT * FROM articles ORDER BY dept_id, descrizione'),
+      pool.query('SELECT * FROM departments ORDER BY label'),
+      pool.query('SELECT * FROM articles ORDER BY descrizione'),
       pool.query('SELECT * FROM history ORDER BY id DESC')
     ]);
     return { departments: depts.rows, articles: arts.rows, history: hist.rows };
   },
-  saveDB: async () => {} // Non più necessario con PostgreSQL
+  saveDB: async () => {} // Non necessario con PostgreSQL
 };

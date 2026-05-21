@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import {
   Settings, BookOpen, ArrowLeft, Radio, Zap, Sun, Shield,
-  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff, Pencil
+  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff
 } from 'lucide-react';
 
 const ICONS = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
@@ -125,7 +125,7 @@ export default function App() {
       <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-24">
         <div className={`flex items-center gap-3 p-4 rounded-xl ${selectedDept?.color} text-white shadow-md mb-3`}>{selectedDept && <selectedDept.icon className="w-8 h-8"/>}<h2 className="text-2xl font-bold">{selectedDept?.label}</h2></div>
         <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col">
-          {/* ✅ GRIGLIA 12 COLONNE: 1(⚙️) + 5(Desc) + 2(N) + 2(R) + 2(Azioni) */}
+          {/* ✅ GRIGLIA OTTIMIZZATA: 1+5+2+2+2 = 12 */}
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
             <div className="col-span-1 text-center">⚙️</div>
             <div className="col-span-5">Descrizione</div>
@@ -136,18 +136,16 @@ export default function App() {
           <div className="flex-1 overflow-y-auto touch-pan-y">
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
               <div key={i.id} className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none">
-                {/* ✅ INGRANAGGIO: CLICK DIRETTO (Niente più timer) */}
+                {/* ✅ INGRANAGGIO: Click diretto, nessun timer */}
                 <div className="col-span-1 flex justify-center">
                   <button onClick={() => openModal(selectedDept.id, i.id, 'realignment')} className="p-1.5 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90">
                     <Settings className="w-4 h-4"/>
                   </button>
                 </div>
-                {/* ✅ DESCRIZIONE */}
                 <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
-                {/* ✅ QUANTITÀ N & R: font-bold + text-base per visibilità garantita */}
+                {/* ✅ QUANTITÀ BOLD e CENTRATE */}
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
-                {/* ✅ AZIONI */}
                 <div className="col-span-2 flex justify-end gap-2">
                   <button onClick={() => openModal(selectedDept.id, i.id, 'unload')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 active:scale-90"><Minus className="w-4 h-4"/></button>
                   <button onClick={() => openModal(selectedDept.id, i.id, 'load')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/30 hover:bg-green-900/50 border border-green-800 text-green-400 active:scale-90"><Plus className="w-4 h-4"/></button>
@@ -204,7 +202,7 @@ export default function App() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setEditDeptModal({ isOpen: true, deptId: d.id, currentLabel: d.label, newLabel: d.label })} className="text-blue-400 p-2 hover:text-blue-300 transition hover:bg-blue-900/30 rounded-lg">
-                <Pencil className="w-5 h-5"/>
+                <Settings className="w-5 h-5"/>
               </button>
               <button onClick={() => setDelDeptModal({ isOpen: true, deptId: d.id, label: d.label })} className="text-red-400 p-2 hover:text-red-300 transition hover:bg-red-900/30 rounded-lg">
                 <Trash2 className="w-5 h-5"/>
@@ -214,8 +212,8 @@ export default function App() {
         ))}
       </div><div className="space-y-3">
         <div className="flex gap-2">
-          <button onClick={async () => { try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`em_backup_${new Date().toISOString().slice(0,10)}.db`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Backup salvato in Download'); } catch(e){ alert('❌ ' + e.message); }}} className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">💾 Backup</button>
-          <label className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition cursor-pointer">📥 Restore<input type="file" accept=".db" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/></label>
+          <button onClick={async () => { try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Backup salvato in Download'); } catch(e){ alert('❌ ' + e.message); }}} className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">💾 Backup</button>
+          <label className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition cursor-pointer">📥 Restore<input type="file" accept=".json" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/></label>
         </div>
         <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-4 bg-red-900/50 text-red-200 rounded-xl flex gap-2 items-center justify-center"><WifiOff className="w-5 h-5"/>Disconnetti / Reset</button>
         <button onClick={() => setAddDeptModal({ isOpen: true, name: '' })} className="w-full py-4 bg-emerald-600 text-white rounded-xl flex gap-2 items-center justify-center"><Plus className="w-5 h-5"/>Nuovo Reparto</button>
