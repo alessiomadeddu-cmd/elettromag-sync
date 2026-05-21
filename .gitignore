@@ -1,6 +1,8 @@
 node_modules/
 .env
 uploads/
+server/.env
+server/uploads/
 server/warehouse.db
 server/warehouse.db-wal
 server/warehouse.db-shm
