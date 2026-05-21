@@ -49,6 +49,17 @@ io.on('connection', async (socket) => {
     } catch (e) { console.error('❌ Errore eliminazione articolo:', e.message); }
   });
 
+  socket.on('update_dept', async ({ id, label }) => {
+    console.log(`✏️ Aggiorna reparto: ${id} -> ${label}`);
+    try {
+      // ✅ Sintassi PostgreSQL ($1, $2)
+      await db.exec('UPDATE departments SET label = $1 WHERE id = $2', [label, id]);
+      io.emit('state_sync', await db.getState());
+    } catch (e) { 
+      console.error('❌ Errore aggiornamento reparto:', e.message); 
+    }
+  });
+
   socket.on('confirm_tx', async (tx) => {
     try {
       if (tx.type === 'realignment') {
