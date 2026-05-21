@@ -55,17 +55,17 @@ export default function App() {
     });
   };
 
-  // ✅ FIX SCROLL MOBILE: Reset immediato su qualsiasi fine/cancellazione touch
-  const lpStart = (d, a) => {
-    setPressId(a);
+  // ✅ FIX SCROLL MOBILE: Funzioni separate per start e cancel
+  const startLongPress = (deptId, artId) => {
+    setPressId(artId);
     lpTimer.current = setTimeout(() => {
-      openModal(d, a, 'realignment');
+      openModal(deptId, artId, 'realignment');
       setPressId(null);
-      navigator.vibrate?.(100);
+      navigator.vibrate?.(50);
     }, 5000);
   };
 
-  const lpCancel = () => {
+  const cancelLongPress = () => {
     clearTimeout(lpTimer.current);
     setPressId(null);
   };
@@ -132,7 +132,6 @@ export default function App() {
   const holdStop = () => { clearInterval(holdTimer.current); if (holdProg < 5000) setHoldProg(0); };
   const delExec = () => { sock.current.emit('del_dept', delDeptModal.deptId); setDelDeptModal({ isOpen: false, deptId: '', label: '' }); setDelOk(false); setHoldProg(0); };
 
-  // 🖼️ Views
   const DeptView = () => {
     const arts = useMemo(() => [...(data.articles[selectedDept?.id] || [])].sort((a, b) => a.descrizione.localeCompare(b.descrizione)), [data, selectedDept]);
     return (
@@ -142,22 +141,21 @@ export default function App() {
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
             <div className="col-span-5">Descrizione</div><div className="col-span-2 text-center">N</div><div className="col-span-2 text-center">R</div><div className="col-span-3 text-right">Azioni</div>
           </div>
-          {/* ✅ FIX: touch-pan-y + onTouchCancel gestisce lo scroll nativo */}
-          <div className="flex-1 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {/* ✅ FIX: Container con touch-pan-y e listener sul container */}
+          <div className="flex-1 overflow-y-auto touch-pan-y" onTouchMove={cancelLongPress} onTouchEnd={cancelLongPress} onTouchCancel={cancelLongPress}>
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
               <div key={i.id} 
                 className={`grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 transition select-none ${pressId === i.id ? 'scale-[0.98] bg-amber-900/30 ring-2 ring-amber-500/50 rounded-lg' : 'hover:bg-gray-700/20'}`} 
-                onTouchStart={() => lpStart(selectedDept.id, i.id)} 
-                onTouchEnd={lpCancel} 
-                onTouchCancel={lpCancel}
-                onMouseDown={() => lpStart(selectedDept.id, i.id)} 
-                onMouseUp={lpCancel} 
-                onMouseLeave={lpCancel}
+                onTouchStart={() => startLongPress(selectedDept.id, i.id)} 
+                onMouseDown={() => startLongPress(selectedDept.id, i.id)} 
+                onMouseUp={cancelLongPress} 
+                onMouseLeave={cancelLongPress}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
                 <div className={`col-span-2 text-center text-sm font-semibold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
                 <div className={`col-span-2 text-center text-sm font-semibold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
-                <div className="col-span-3 flex justify-end gap-2" onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} onTouchCancel={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()} onMouseUp={e=>e.stopPropagation()}>
+                <div className="col-span-3 flex justify-end gap-2" onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()} onMouseUp={e=>e.stopPropagation()}>
                   <button onClick={() => openModal(selectedDept.id, i.id, 'unload')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 active:scale-90"><Minus className="w-4 h-4"/></button>
                   <button onClick={() => openModal(selectedDept.id, i.id, 'load')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/30 hover:bg-green-900/50 border border-green-800 text-green-400 active:scale-90"><Plus className="w-4 h-4"/></button>
                 </div>

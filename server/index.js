@@ -37,6 +37,13 @@ io.on('connection', async (socket) => {
     } catch (e) { console.error('❌ Errore eliminazione reparto:', e.message); }
   });
 
+  socket.on('update_dept', async ({ id, label }) => {
+    try {
+      await db.exec('UPDATE departments SET label = $1 WHERE id = $2', [label, id]);
+      io.emit('state_sync', await db.getState());
+    } catch (e) { console.error('❌ Errore aggiornamento reparto:', e.message); }
+  });
+
   socket.on('add_art', async (data) => {
     await db.exec('INSERT INTO articles (id, dept_id, descrizione, qtyNuovo, qtyRigenerato) VALUES ($1, $2, $3, 0, 0)', [data.id, data.deptId, data.descrizione]);
     io.emit('state_sync', await db.getState());
@@ -47,17 +54,6 @@ io.on('connection', async (socket) => {
       await db.exec('DELETE FROM articles WHERE id = $1', [artId]);
       io.emit('state_sync', await db.getState());
     } catch (e) { console.error('❌ Errore eliminazione articolo:', e.message); }
-  });
-
-  socket.on('update_dept', async ({ id, label }) => {
-    console.log(`✏️ Aggiorna reparto: ${id} -> ${label}`);
-    try {
-      // ✅ Sintassi PostgreSQL ($1, $2)
-      await db.exec('UPDATE departments SET label = $1 WHERE id = $2', [label, id]);
-      io.emit('state_sync', await db.getState());
-    } catch (e) { 
-      console.error('❌ Errore aggiornamento reparto:', e.message); 
-    }
   });
 
   socket.on('confirm_tx', async (tx) => {
@@ -79,7 +75,7 @@ io.on('connection', async (socket) => {
 
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-// Reset DB
+// 🗄️ Reset DB
 app.post('/api/reset-db', async (req, res) => {
   if (req.query.key !== process.env.ACCESS_KEY) return res.status(403).json({ error: 'Accesso negato' });
   try {
@@ -91,7 +87,7 @@ app.post('/api/reset-db', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Backup & Restore (Adattato per PostgreSQL JSON)
+// 💾 Backup & Restore (JSON)
 const upload = multer({ dest: 'uploads/' });
 
 app.get('/api/db/export', async (req, res) => {
