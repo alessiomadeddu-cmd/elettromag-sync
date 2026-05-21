@@ -21,6 +21,7 @@ export default function App() {
   const [delOk, setDelOk] = useState(false);
   const [delArtConfirm, setDelArtConfirm] = useState(false);
   const [editDeptModal, setEditDeptModal] = useState({ isOpen: false, deptId: '', currentLabel: '', newLabel: '' });
+  const [inventoryModal, setInventoryModal] = useState(false); // ✅ NUOVO STATO INVENTARIO
   const [holdProg, setHoldProg] = useState(0);
   const sock = useRef(null);
   const holdTimer = useRef(null);
@@ -52,6 +53,15 @@ export default function App() {
       setData({ ...st, articles: arts, departments: st.departments.map(d => ({ ...d, icon: ICONS[d.icon] || Package })) });
     });
   };
+
+  // ✅ Lista piatta di tutti gli articoli per l'inventario
+  const allArticles = useMemo(() => {
+    const flat = [];
+    for (const [deptId, arts] of Object.entries(data.articles)) {
+      arts.forEach(a => flat.push({ ...a, dept_id: deptId }));
+    }
+    return flat.sort((a, b) => a.descrizione.localeCompare(b.descrizione));
+  }, [data.articles]);
 
   const openModal = (d, a, t) => {
     const art = data.articles[d]?.find(x => x.id === a);
@@ -125,7 +135,6 @@ export default function App() {
       <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-24">
         <div className={`flex items-center gap-3 p-4 rounded-xl ${selectedDept?.color} text-white shadow-md mb-3`}>{selectedDept && <selectedDept.icon className="w-8 h-8"/>}<h2 className="text-2xl font-bold">{selectedDept?.label}</h2></div>
         <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col">
-          {/* ✅ GRIGLIA OTTIMIZZATA: 1+5+2+2+2 = 12 */}
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
             <div className="col-span-1 text-center">⚙️</div>
             <div className="col-span-5">Descrizione</div>
@@ -136,14 +145,12 @@ export default function App() {
           <div className="flex-1 overflow-y-auto touch-pan-y">
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
               <div key={i.id} className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none">
-                {/* ✅ INGRANAGGIO: Click diretto, nessun timer */}
                 <div className="col-span-1 flex justify-center">
                   <button onClick={() => openModal(selectedDept.id, i.id, 'realignment')} className="p-1.5 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90">
                     <Settings className="w-4 h-4"/>
                   </button>
                 </div>
                 <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
-                {/* ✅ QUANTITÀ BOLD e CENTRATE */}
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
                 <div className="col-span-2 flex justify-end gap-2">
@@ -212,9 +219,15 @@ export default function App() {
         ))}
       </div><div className="space-y-3">
         <div className="flex gap-2">
-          <button onClick={async () => { try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Backup salvato in Download'); } catch(e){ alert('❌ ' + e.message); }}} className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">💾 Backup</button>
+          <button onClick={async () => { try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`em_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Backup salvato in Download'); } catch(e){ alert('❌ ' + e.message); }}} className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">💾 Backup</button>
           <label className="flex-1 py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition cursor-pointer">📥 Restore<input type="file" accept=".json" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/></label>
         </div>
+        
+        {/* ✅ NUOVO PULSANTE GESTIONE INVENTARIO */}
+        <button onClick={() => setInventoryModal(true)} className="w-full py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">
+          <Wrench className="w-5 h-5"/> Gestione Inventario
+        </button>
+
         <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-4 bg-red-900/50 text-red-200 rounded-xl flex gap-2 items-center justify-center"><WifiOff className="w-5 h-5"/>Disconnetti / Reset</button>
         <button onClick={() => setAddDeptModal({ isOpen: true, name: '' })} className="w-full py-4 bg-emerald-600 text-white rounded-xl flex gap-2 items-center justify-center"><Plus className="w-5 h-5"/>Nuovo Reparto</button>
       </div></main>}
@@ -271,6 +284,33 @@ export default function App() {
               >
                 {delArtConfirm && modal.type === 'realignment' ? '🗑️ Elimina Articolo' : 'Conferma'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* ✅ MODALE GESTIONE INVENTARIO */}
+      {inventoryModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={() => setInventoryModal(false)}>
+          <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">📦 Gestione Inventario</h3>
+              <button onClick={() => setInventoryModal(false)} className="p-1 hover:bg-gray-700 rounded transition"><X className="w-5 h-5"/></button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {allArticles.length === 0 ? (
+                <div className="text-center text-gray-400 py-6">Nessun articolo presente nel database</div>
+              ) : allArticles.map(art => (
+                <div key={art.id} className="flex justify-between items-center p-3 bg-gray-900/50 rounded-xl border border-gray-700">
+                  <span className="text-gray-200 truncate mr-3 text-sm font-medium">{art.descrizione}</span>
+                  <button
+                    onClick={() => openModal(art.dept_id, art.id, 'realignment')}
+                    className="p-2 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90"
+                  >
+                    <Settings className="w-4 h-4"/>
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
