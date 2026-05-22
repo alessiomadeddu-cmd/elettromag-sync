@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import {
   Settings, BookOpen, ArrowLeft, Radio, Zap, Sun, Shield,
-  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff
+  Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff, Pencil
 } from 'lucide-react';
 
 const ICONS = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
@@ -49,7 +49,12 @@ export default function App() {
     s.on('connect_error', () => { setConn('error'); setAuth({ open: true, key: '', err: true }); localStorage.removeItem('em_auth'); });
     s.on('state_sync', (st) => {
       const arts = {};
-      st.articles.forEach(a => { (arts[a.dept_id] = arts[a.dept_id] || []).push(a); });
+      st.articles.forEach(a => {
+        // ✅ FIX: Gestione casing PostgreSQL (minuscolo)
+        a.qtyNuovo = a.qtyNuovo ?? a.qtynuovo ?? 0;
+        a.qtyRigenerato = a.qtyRigenerato ?? a.qtyrigenerato ?? 0;
+        (arts[a.dept_id] = arts[a.dept_id] || []).push(a);
+      });
       setData({ ...st, articles: arts, departments: st.departments.map(d => ({ ...d, icon: ICONS[d.icon] || Package })) });
     });
   };
@@ -98,12 +103,22 @@ export default function App() {
       }
       const nN = parseInt(modal.newQtyN), nR = parseInt(modal.newQtyR);
       if (isNaN(nN) || isNaN(nR)) return alert('Valori non validi');
-      dN = nN - art.qtyNuovo; dR = nR - art.qtyRigenerato;
-      if (dN !== 0) hist.push({ desc: modal.descrizione, date: now, qty: dN, customer: '', origin: '', tipo: 'Nuovo', op: 'realignment' });
-      if (dR !== 0) hist.push({ desc: modal.descrizione, date: now, qty: dR, customer: '', origin: '', tipo: 'Rigenerato', op: 'realignment' });
+      dN = nN - (art.qtyNuovo ?? 0);
+      dR = nR - (art.qtyRigenerato ?? 0);
+
+      // ✅ STORICO: 2 movimenti separati con M-AGG
+      if (dN !== 0) {
+        hist.push({ desc: modal.descrizione, date: now, qty: Math.abs(dN), customer: dN < 0 ? 'M-AGG' : '', origin: dN > 0 ? 'M-AGG' : '', tipo: 'Nuovo', op: dN > 0 ? 'load' : 'unload' });
+      }
+      if (dR !== 0) {
+        hist.push({ desc: modal.descrizione, date: now, qty: Math.abs(dR), customer: dR < 0 ? 'M-AGG' : '', origin: dR > 0 ? 'M-AGG' : '', tipo: 'Rigenerato', op: dR > 0 ? 'load' : 'unload' });
+      }
     } else {
       const q = parseInt(modal.qty);
-      if (isNaN(q) || q <= 0 || (modal.type === 'unload' && !modal.customer.trim())) return;
+      if (isNaN(q) || q <= 0) return alert('Quantità non valida');
+      if (modal.type === 'load' && !modal.origin.trim()) return alert('Inserire il Fornitore');
+      if (modal.type === 'unload' && !modal.customer.trim()) return alert('Inserire il Cliente');
+      
       const f = modal.targetType === 'N' ? 'qtyNuovo' : 'qtyRigenerato';
       if (modal.type === 'load') f === 'qtyNuovo' ? dN = q : dR = q; else f === 'qtyNuovo' ? dN = -q : dR = -q;
       hist.push({ desc: modal.descrizione, date: now, qty: q, customer: modal.customer.trim(), origin: modal.origin.trim(), tipo: modal.targetType === 'N' ? 'Nuovo' : 'Rigenerato', op: modal.type });
@@ -134,7 +149,6 @@ export default function App() {
       <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-24">
         <div className={`flex items-center gap-3 p-4 rounded-xl ${selectedDept?.color} text-white shadow-md mb-3`}>{selectedDept && <selectedDept.icon className="w-8 h-8"/>}<h2 className="text-2xl font-bold">{selectedDept?.label}</h2></div>
         <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col">
-          {/* ✅ GRIGLIA RIPRISTINATA: 5+2+2+3 = 12 colonne */}
           <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
             <div className="col-span-5">Descrizione</div>
             <div className="col-span-2 text-center">N</div>
@@ -144,12 +158,9 @@ export default function App() {
           <div className="flex-1 overflow-y-auto touch-pan-y">
             {arts.length === 0 ? <div className="p-8 text-center text-gray-400">Nessun articolo</div> : arts.map(i => (
               <div key={i.id} className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700/20 transition select-none">
-                {/* ✅ Descrizione ampliata */}
                 <div className="col-span-5 min-w-0 text-gray-200 font-medium truncate text-sm">{i.descrizione}</div>
-                {/* ✅ Quantità in evidenza */}
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyNuovo < 0 ? 'text-red-400' : 'text-green-400'}`}>{i.qtyNuovo}</div>
                 <div className={`col-span-2 text-center text-base font-bold tabular-nums ${i.qtyRigenerato < 0 ? 'text-red-400' : 'text-yellow-400'}`}>{i.qtyRigenerato}</div>
-                {/* ✅ Pulsanti +/- */}
                 <div className="col-span-3 flex justify-end gap-2">
                   <button onClick={() => openModal(selectedDept.id, i.id, 'unload')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 active:scale-90"><Minus className="w-4 h-4"/></button>
                   <button onClick={() => openModal(selectedDept.id, i.id, 'load')} className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/30 hover:bg-green-900/50 border border-green-800 text-green-400 active:scale-90"><Plus className="w-4 h-4"/></button>
@@ -185,7 +196,7 @@ export default function App() {
       {view === 'history' && <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-4"><h2 className="text-xl font-bold mb-3 flex gap-2 items-center"><BookOpen className="w-5 h-5"/>Storico</h2><div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col"><div className="sticky top-0 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b text-xs font-bold text-gray-400 uppercase"><div className="col-span-3">Data</div><div className="col-span-3">Descrizione</div><div className="col-span-3 text-center">Qtà</div><div className="col-span-3">Dest/Orig</div></div><div className="flex-1 overflow-y-auto">{data.history.length===0?<div className="p-8 text-center text-gray-400">Nessun movimento</div>:
       data.history.map(h => {
         const op = h.operation || h.op || '';
-        const c = h.tipo==='Nuovo'?'text-green-400':h.tipo==='Rigenerato'?'text-yellow-400':'text-blue-400';
+        const c = h.tipo==='Nuovo'?'text-green-400':h.tipo==='Rigenerato'?'text-yellow-400':h.tipo==='Riallineamento'?'text-blue-400':'text-gray-400';
         const q = op === 'unload' ? `-${h.qty}` : `+${h.qty}`;
         const d = h.customer? `Cli: ${h.customer}` :h.origin? `Org: ${h.origin}` :'-';
         const bg = op === 'load' ? 'bg-green-900/20' : 'bg-red-900/35';
