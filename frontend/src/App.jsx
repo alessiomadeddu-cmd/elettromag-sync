@@ -50,6 +50,16 @@ export default function App() {
     return () => sock.current?.disconnect();
   }, []);
 
+  // ✅ FIX 2 & 4: Agenda Today + Blocco Rotazione
+  useEffect(() => {
+    if (view === 'agenda') setSelectedDate(getLocalDate());
+    
+    // Blocco rotazione schermo (supportato da Android/Chrome, ignorato da iOS Safari)
+    if (screen.orientation?.lock) {
+      screen.orientation.lock('portrait').catch(() => {});
+    }
+  }, [view]);
+
   const connect = (key) => {
     const url = window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin;
     const s = io(url, { auth: { key }, reconnection: true, reconnectionDelay: 1000, timeout: 5000, transports: ['websocket', 'polling'] });
@@ -130,10 +140,12 @@ export default function App() {
     closeAdd();
   };
 
+  // ✅ FIX 3: Eliminazione articolo nel riallineamento
   const confirmTx = () => {
     if (delArtConfirm && modal.type === 'realignment') {
       sock.current.emit('delete_art', { artId: modal.articleId, deptId: modal.deptId });
-      closeModal(); return;
+      closeModal();
+      return;
     }
     const now = new Date().toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const art = data.articles[modal.deptId]?.find(x => x.id === modal.articleId);
@@ -259,23 +271,25 @@ export default function App() {
       {view === 'warehouse' && <main className="p-4 pb-24"><h1 className="text-xl font-bold mb-6">Reparti</h1><div className="grid grid-cols-2 gap-4">{data.departments.map(d => (<button key={d.id} onClick={() => { setSelectedDept(d); setView('dept'); }} className={`${d.color} flex flex-col items-center justify-center gap-3 p-6 rounded-2xl shadow-lg text-white font-semibold text-lg active:scale-95 min-h-[140px]`}><d.icon className="w-10 h-10"/><span>{d.label}</span></button>))}</div></main>}
       {view === 'dept' && <DeptView/>}
       
-      {/* ✅ STORICO */}
-      {view === 'history' && <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-4"><h2 className="text-xl font-bold mb-3 flex gap-2 items-center"><BookOpen className="w-5 h-5"/>Storico</h2><div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col"><div className="sticky top-0 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b text-xs font-bold text-gray-400 uppercase"><div className="col-span-3">Data</div><div className="col-span-3">Descrizione</div><div className="col-span-2 text-center">Qtà</div><div className="col-span-4">Dest/Orig</div></div><div className="flex-1 overflow-y-auto">{data.history.length===0?<div className="p-8 text-center text-gray-400">Nessun movimento</div>:
-      data.history.map(h => {
-        const op = h.operation || h.op || '';
-        const c = h.tipo === 'Nuovo' ? 'text-green-400' : h.tipo === 'Rigenerato' ? 'text-yellow-400' : 'text-blue-400';
-        const q = op === 'unload' ? `-${h.qty}` : `+${h.qty}`;
-        const d = h.customer? `Cli: ${h.customer}` :h.origin? `Org: ${h.origin}` :'-';
-        const bg = op === 'unload' ? 'bg-red-900/20 border-l-4 border-l-red-500' : op === 'realignment' ? 'bg-blue-900/10 border-l-4 border-l-blue-500' : 'bg-green-900/20 border-l-4 border-l-green-500';
-        return (
-          <div key={h.id} className={`grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-600/20 text-sm ${bg}`}>
-            <div className="col-span-3 text-gray-400 truncate">{h.date}</div>
-            <div className="col-span-3 text-gray-200 truncate">{h.descrizione}</div>
-            <div className={`col-span-2 text-center font-semibold tabular-nums ${c}`}>{q}</div>
-            <div className="col-span-4 text-gray-300 truncate">{d}</div>
-          </div>
-        );
-      })}</div></div></main>}
+      {/* ✅ STORICO - FIX 1: ORDINE RECENTE → VECCHIO */}
+      {view === 'history' && <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-4"><h2 className="text-xl font-bold mb-3 flex gap-2 items-center"><BookOpen className="w-5 h-5"/>Storico</h2><div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col"><div className="sticky top-0 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b text-xs font-bold text-gray-400 uppercase"><div className="col-span-3">Data</div><div className="col-span-3">Descrizione</div><div className="col-span-2 text-center">Qtà</div><div className="col-span-4">Dest/Orig</div></div><div className="flex-1 overflow-y-auto">
+        {data.history.length===0 ? <div className="p-8 text-center text-gray-400">Nessun movimento</div> : 
+        // ✅ FIX 1: Reverse immutabile per ordinamento cronologico decrescente
+        [...data.history].reverse().map(h => {
+          const op = h.operation || h.op || '';
+          const c = h.tipo === 'Nuovo' ? 'text-green-400' : h.tipo === 'Rigenerato' ? 'text-yellow-400' : 'text-blue-400';
+          const q = op === 'unload' ? `-${h.qty}` : `+${h.qty}`;
+          const d = h.customer? `Cli: ${h.customer}` :h.origin? `Org: ${h.origin}` :'-';
+          const bg = op === 'unload' ? 'bg-red-900/20 border-l-4 border-l-red-500' : op === 'realignment' ? 'bg-blue-900/10 border-l-4 border-l-blue-500' : 'bg-green-900/20 border-l-4 border-l-green-500';
+          return (
+            <div key={h.id} className={`grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-gray-700/50 hover:bg-gray-600/20 text-sm ${bg}`}>
+              <div className="col-span-3 text-gray-400 truncate">{h.date}</div>
+              <div className="col-span-3 text-gray-200 truncate">{h.descrizione}</div>
+              <div className={`col-span-2 text-center font-semibold tabular-nums ${c}`}>{q}</div>
+              <div className="col-span-4 text-gray-300 truncate">{d}</div>
+            </div>
+          );
+        })}</div></div></main>}
       
       {/* ✅ IMPOSTAZIONI MAGAZZINO */}
       {view === 'settings' && <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-4"><h2 className="text-xl font-bold mb-4">Gestione Reparti</h2><div className="flex-1 space-y-3 mb-4 overflow-y-auto">{data.departments.map(d => (<div key={d.id} className="flex justify-between p-4 bg-gray-800 rounded-xl border border-gray-700"><div className="flex gap-3 items-center"><div className={`w-10 h-10 ${d.color} rounded-lg flex items-center justify-center`}><d.icon className="w-5 h-5"/></div><span>{d.label}</span></div><div className="flex gap-2"><button onClick={() => setEditDeptModal({ isOpen: true, deptId: d.id, currentLabel: d.label, newLabel: d.label })} className="text-blue-400 p-2 hover:text-blue-300 transition hover:bg-blue-900/30 rounded-lg"><Settings className="w-5 h-5"/></button><button onClick={() => setDelDeptModal({ isOpen: true, deptId: d.id, label: d.label })} className="text-red-400 p-2 hover:text-red-300 transition hover:bg-red-900/30 rounded-lg"><Trash2 className="w-5 h-5"/></button></div></div>))}</div><div className="space-y-3">
@@ -287,10 +301,9 @@ export default function App() {
 
       {auth.open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/95 p-4"><div className="w-full max-w-sm bg-gray-800 rounded-2xl p-6 border border-gray-700 text-center"><h2 className="text-xl font-bold mb-2">Accesso Richiesto</h2><p className="text-gray-400 text-sm mb-4">Inserisci la chiave per sincronizzare il magazzino</p><form onSubmit={e => { e.preventDefault(); connect(auth.key.trim()); }}><input type="password" value={auth.key} onChange={e => setAuth(p => ({...p, key: e.target.value}))} placeholder="Chiave di accesso" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-center mb-3 outline-none focus:ring-2 focus:ring-blue-500" autoFocus/>{auth.err && <p className="text-red-400 text-sm mb-2">Chiave errata</p>}<button type="submit" className="w-full py-3 bg-blue-600 rounded-xl font-bold">Accedi</button></form></div></div>}
 
-      {/* ✅ AGENDA V3 - SCROLL ISOLATO & COLORI FIXATI */}
+      {/* ✅ AGENDA V3 */}
       {view === 'agenda' && (
         <div className="flex flex-col h-[calc(100vh-56px)] bg-gray-900 overflow-hidden">
-          {/* Calendario: flex-shrink-0 mantiene altezza fissa */}
           <div className="bg-gray-800 p-4 border-b border-gray-700 z-10 shadow-lg flex-shrink-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             <div className="flex justify-between items-center mb-4">
               <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-2 rounded-full hover:bg-gray-700"><ChevronLeft className="w-5 h-5"/></button>
@@ -321,7 +334,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Lista: flex-1 + overflow-y-active abilita scroll SOLO qui */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-20">
             {appointments.filter(a => a.date === selectedDate).sort((a,b) => a.time.localeCompare(b.time)).map(appt => (
               <div key={appt.id} className="bg-gray-800 rounded-xl border border-gray-700 p-4 flex items-center gap-4">
@@ -350,7 +362,7 @@ export default function App() {
       {editDeptModal.isOpen && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4" onClick={() => setEditDeptModal({isOpen:false, deptId:'', currentLabel:'', newLabel:''})}><div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}><h3 className="text-lg font-bold mb-4">✏️ Modifica Nome Reparto</h3><p className="text-sm text-gray-400 mb-3">Attuale: <span className="text-white font-medium">{editDeptModal.currentLabel}</span></p><input type="text" value={editDeptModal.newLabel} onChange={e => setEditDeptModal(p => ({...p, newLabel: e.target.value}))} placeholder="Nuovo nome reparto" className="w-full p-3 bg-gray-900 rounded-xl border border-gray-600 mb-4 focus:ring-2 focus:ring-blue-500 outline-none" autoFocus/><div className="flex gap-3"><button onClick={() => setEditDeptModal({isOpen:false, deptId:'', currentLabel:'', newLabel:''})} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl transition">Annulla</button><button onClick={() => { if (!editDeptModal.newLabel.trim()) return alert('Il nome non può essere vuoto'); sock.current.emit('update_dept', { id: editDeptModal.deptId, label: editDeptModal.newLabel.trim() }); setEditDeptModal({isOpen:false, deptId:'', currentLabel:'', newLabel:''}); }} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition">Salva Modifiche</button></div></div></div>)}
       {inventoryModal && (<div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={() => setInventoryModal(false)}><div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}><div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">📦 Gestione Inventario</h3><button onClick={() => setInventoryModal(false)} className="p-1 hover:bg-gray-700 rounded transition"><X className="w-5 h-5"/></button></div><div className="flex-1 overflow-y-auto space-y-2 pr-1">{allArticles.length === 0 ? (<div className="text-center text-gray-400 py-6">Nessun articolo presente nel database</div>) : allArticles.map(art => (<div key={art.id} className="flex justify-between items-center p-3 bg-gray-900/50 rounded-xl border border-gray-700"><span className="text-gray-200 truncate mr-3 text-sm font-medium">{art.descrizione}</span><button onClick={() => { setInventoryModal(false); openModal(art.dept_id, art.id, 'realignment'); }} className="p-2 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90"><Settings className="w-4 h-4"/></button></div>))}</div></div></div>)}
 
-      {/* ✅ MODALE AGENDA - SALVATAGGIO FIXATO */}
+      {/* ✅ MODALE AGENDA */}
       {agendaModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4" onClick={() => setAgendaModal(false)}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
