@@ -50,11 +50,12 @@ export default function App() {
     return () => sock.current?.disconnect();
   }, []);
 
-  // ✅ FIX 2 & 4: Agenda Today + Blocco Rotazione
+  // ✅ FIX 2 & LOCK ROTAZIONE
   useEffect(() => {
-    if (view === 'agenda') setSelectedDate(getLocalDate());
-    
-    // Blocco rotazione schermo (supportato da Android/Chrome, ignorato da iOS Safari)
+    if (view === 'agenda') {
+      setSelectedDate(getLocalDate());
+      setCurrentMonth(new Date()); // ✅ FIX 2a: Reset visualizzazione al mese corrente
+    }
     if (screen.orientation?.lock) {
       screen.orientation.lock('portrait').catch(() => {});
     }
@@ -140,7 +141,7 @@ export default function App() {
     closeAdd();
   };
 
-  // ✅ FIX 3: Eliminazione articolo nel riallineamento
+  // ✅ FIX 3: Eliminazione articolo nel riallineamento (logica pulita)
   const confirmTx = () => {
     if (delArtConfirm && modal.type === 'realignment') {
       sock.current.emit('delete_art', { artId: modal.articleId, deptId: modal.deptId });
@@ -214,7 +215,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-900 font-sans text-gray-100 select-none">
-      {/* ✅ HEADER */}
+      {/* ✅ FIX 2b: Stile per transizione mese */}
+      <style>{`
+        @keyframes monthFadeSlide { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .month-transition { animation: monthFadeSlide 0.3s ease-out forwards; }
+      `}</style>
+
       <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-gray-900/95 backdrop-blur border-b border-gray-800">
         <div className="flex items-center gap-3">
           {view !== 'main' && <button onClick={goBack} className="p-2 rounded-lg hover:bg-gray-800"><ArrowLeft className="w-5 h-5"/></button>}
@@ -236,7 +242,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* ✅ CONFIGURAZIONE GLOBALE */}
       {view === 'settings_global' && (
         <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-4 items-center justify-center">
           <h2 className="text-2xl font-bold mb-8">Configurazione & Database</h2>
@@ -255,7 +260,6 @@ export default function App() {
         </main>
       )}
 
-      {/* ✅ HOME */}
       {view === 'main' && (
         <main className="flex flex-col items-center justify-center h-[calc(100vh-56px)] gap-6 p-6">
           <button onClick={() => setView('warehouse')} className="w-full max-w-md p-8 bg-gray-800 rounded-2xl border border-gray-700 hover:border-blue-500 transition flex flex-col items-center gap-3 active:scale-95">
@@ -267,14 +271,12 @@ export default function App() {
         </main>
       )}
 
-      {/* ✅ MAGAZZINO */}
       {view === 'warehouse' && <main className="p-4 pb-24"><h1 className="text-xl font-bold mb-6">Reparti</h1><div className="grid grid-cols-2 gap-4">{data.departments.map(d => (<button key={d.id} onClick={() => { setSelectedDept(d); setView('dept'); }} className={`${d.color} flex flex-col items-center justify-center gap-3 p-6 rounded-2xl shadow-lg text-white font-semibold text-lg active:scale-95 min-h-[140px]`}><d.icon className="w-10 h-10"/><span>{d.label}</span></button>))}</div></main>}
       {view === 'dept' && <DeptView/>}
       
-      {/* ✅ STORICO - FIX 1: ORDINE RECENTE → VECCHIO */}
+      {/* ✅ STORICO (FIX 1: Ordine Recente → Vecchio) */}
       {view === 'history' && <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-4"><h2 className="text-xl font-bold mb-3 flex gap-2 items-center"><BookOpen className="w-5 h-5"/>Storico</h2><div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col"><div className="sticky top-0 grid grid-cols-12 gap-2 px-4 py-3 bg-gray-900 border-b text-xs font-bold text-gray-400 uppercase"><div className="col-span-3">Data</div><div className="col-span-3">Descrizione</div><div className="col-span-2 text-center">Qtà</div><div className="col-span-4">Dest/Orig</div></div><div className="flex-1 overflow-y-auto">
         {data.history.length===0 ? <div className="p-8 text-center text-gray-400">Nessun movimento</div> : 
-        // ✅ FIX 1: Reverse immutabile per ordinamento cronologico decrescente
         [...data.history].reverse().map(h => {
           const op = h.operation || h.op || '';
           const c = h.tipo === 'Nuovo' ? 'text-green-400' : h.tipo === 'Rigenerato' ? 'text-yellow-400' : 'text-blue-400';
@@ -291,7 +293,6 @@ export default function App() {
           );
         })}</div></div></main>}
       
-      {/* ✅ IMPOSTAZIONI MAGAZZINO */}
       {view === 'settings' && <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-4"><h2 className="text-xl font-bold mb-4">Gestione Reparti</h2><div className="flex-1 space-y-3 mb-4 overflow-y-auto">{data.departments.map(d => (<div key={d.id} className="flex justify-between p-4 bg-gray-800 rounded-xl border border-gray-700"><div className="flex gap-3 items-center"><div className={`w-10 h-10 ${d.color} rounded-lg flex items-center justify-center`}><d.icon className="w-5 h-5"/></div><span>{d.label}</span></div><div className="flex gap-2"><button onClick={() => setEditDeptModal({ isOpen: true, deptId: d.id, currentLabel: d.label, newLabel: d.label })} className="text-blue-400 p-2 hover:text-blue-300 transition hover:bg-blue-900/30 rounded-lg"><Settings className="w-5 h-5"/></button><button onClick={() => setDelDeptModal({ isOpen: true, deptId: d.id, label: d.label })} className="text-red-400 p-2 hover:text-red-300 transition hover:bg-red-900/30 rounded-lg"><Trash2 className="w-5 h-5"/></button></div></div>))}</div><div className="space-y-3">
         <button onClick={() => setInventoryModal(true)} className="w-full py-3 bg-gray-700 text-gray-200 rounded-xl flex gap-2 items-center justify-center hover:bg-gray-600 transition">
           <Wrench className="w-5 h-5"/> Gestione Inventario
@@ -301,7 +302,7 @@ export default function App() {
 
       {auth.open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/95 p-4"><div className="w-full max-w-sm bg-gray-800 rounded-2xl p-6 border border-gray-700 text-center"><h2 className="text-xl font-bold mb-2">Accesso Richiesto</h2><p className="text-gray-400 text-sm mb-4">Inserisci la chiave per sincronizzare il magazzino</p><form onSubmit={e => { e.preventDefault(); connect(auth.key.trim()); }}><input type="password" value={auth.key} onChange={e => setAuth(p => ({...p, key: e.target.value}))} placeholder="Chiave di accesso" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-center mb-3 outline-none focus:ring-2 focus:ring-blue-500" autoFocus/>{auth.err && <p className="text-red-400 text-sm mb-2">Chiave errata</p>}<button type="submit" className="w-full py-3 bg-blue-600 rounded-xl font-bold">Accedi</button></form></div></div>}
 
-      {/* ✅ AGENDA V3 */}
+      {/* ✅ AGENDA V3 (FIX 2a & 2b applicati) */}
       {view === 'agenda' && (
         <div className="flex flex-col h-[calc(100vh-56px)] bg-gray-900 overflow-hidden">
           <div className="bg-gray-800 p-4 border-b border-gray-700 z-10 shadow-lg flex-shrink-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -313,7 +314,8 @@ export default function App() {
             <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-bold text-gray-500 mb-2">
               <span>LUN</span><span>MAR</span><span>MER</span><span>GIO</span><span>VEN</span><span className="text-gray-400">SAB</span><span className="text-red-500">DOM</span>
             </div>
-            <div className="grid grid-cols-7 gap-1.5">
+            {/* ✅ FIX 2b: Transizione mese */}
+            <div key={currentMonth.toISOString()} className="grid grid-cols-7 gap-1.5 month-transition">
               {days.map((d, i) => {
                 const isSelected = d.date === selectedDate;
                 const isToday = d.isToday;
@@ -354,7 +356,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ✅ MODALI MAGAZZINO (INVARIADE) */}
+      {/* ✅ MODALI MAGAZZINO */}
       {modal.isOpen && (<div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={closeModal}><div className="w-full max-w-md bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl max-h-[80vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}><div className="flex justify-between mb-4"><h3 className="font-bold">{modal.type==='load'?`📥 Carico - ${modal.descrizione}`:modal.type==='unload'?`📤 Scarico - ${modal.descrizione}`:'⚙️ Riallineamento - '+modal.descrizione}</h3><button onClick={closeModal}><X/></button></div>{modal.type==='realignment'?(<><div className="mb-3"><label className="text-xs text-blue-400">Nome Articolo</label><input type="text" value={modal.descrizione} onChange={e=>setModal(p=>({...p, descrizione: e.target.value}))} className="w-full bg-gray-900 rounded-lg p-2 mt-1 border border-gray-700 text-white focus:ring-2 focus:ring-blue-500 outline-none"/></div><div className="grid grid-cols-2 gap-3 mb-4"><div><label className="text-xs text-green-400">Nuovo</label><input type="number" value={modal.newQtyN} onChange={e=>setModal(p=>({...p,newQtyN:e.target.value}))} className="w-full bg-gray-900 rounded-lg p-2 mt-1"/></div><div><label className="text-xs text-yellow-400">Rigenerato</label><input type="number" value={modal.newQtyR} onChange={e=>setModal(p=>({...p,newQtyR:e.target.value}))} className="w-full bg-gray-900 rounded-lg p-2 mt-1"/></div></div><label className="flex gap-2 items-center mb-4 p-3 bg-gray-900/50 rounded-xl cursor-pointer text-red-400" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={delArtConfirm} onChange={e=>{e.stopPropagation();setDelArtConfirm(e.target.checked);}} onClick={e=>e.stopPropagation()} className="w-5 h-5 text-red-500 rounded"/><span className="text-sm">Elimina questo articolo definitivamente</span></label></>):(<><div className="grid grid-cols-2 gap-2 mb-4"><button onClick={()=>setModal(p=>({...p,targetType:'N'}))} className={`p-3 rounded-xl border ${modal.targetType==='N'?'bg-green-600 border-green-500':'bg-gray-900'}`}>Nuovo</button><button onClick={()=>setModal(p=>({...p,targetType:'R'}))} className={`p-3 rounded-xl border ${modal.targetType==='R'?'bg-yellow-600 border-yellow-500':'bg-gray-900'}`}>Rigenerato</button></div><label className="text-xs">Quantità</label><div className="flex items-center gap-2 mb-4"><input type="number" inputMode="numeric" value={modal.qty} onChange={e=>setModal(p=>({...p,qty:e.target.value}))} className="flex-1 h-12 bg-gray-900 rounded-lg px-3 text-center"/><button onClick={()=>setModal(p=>({...p,qty:String(Math.max(1,(parseInt(p.qty)||1)-1))}))} className="w-12 h-12 bg-gray-800 rounded-lg border border-gray-700"><Minus/></button><button onClick={()=>setModal(p=>({...p,qty:String((parseInt(p.qty)||0)+1)}))} className="w-12 h-12 bg-blue-600 rounded-lg"><Plus/></button></div>{modal.type==='load' && <input type="text" value={modal.origin} onChange={e=>setModal(p=>({...p,origin:e.target.value}))} placeholder="Origine/Fornitore" className="w-full bg-gray-900 rounded-lg p-3 mb-4"/>}{modal.type==='unload' && <input type="text" value={modal.customer} onChange={e=>setModal(p=>({...p,customer:e.target.value}))} placeholder="Cliente" className="w-full bg-gray-900 rounded-lg p-3 mb-4"/>}</>)}<div className="flex gap-3 mt-4"><button onClick={closeModal} className="flex-1 py-3 bg-gray-700 rounded-xl">Annulla</button><button onClick={confirmTx} className={`flex-1 py-3 rounded-xl ${delArtConfirm && modal.type === 'realignment' ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>{delArtConfirm && modal.type === 'realignment' ? '🗑️ Elimina Articolo' : 'Conferma'}</button></div></div></div>)}
       {addModal.isOpen && (<div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={closeAdd}><div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700"><h3 className="font-bold mb-3">📦 Nuovo Articolo - {selectedDept?.label}</h3><input type="text" value={addModal.description} onChange={e=>setAddModal(p=>({...p,description:e.target.value}))} placeholder="Descrizione" className="w-full bg-gray-900 rounded-lg p-3 mb-4" autoFocus/><div className="flex gap-3"><button onClick={closeAdd} className="flex-1 py-3 bg-gray-700 rounded-xl">Annulla</button><button onClick={addArt} className="flex-1 py-3 bg-emerald-600 rounded-xl">Aggiungi</button></div></div></div>)}
       {addDeptModal.isOpen && (<div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={()=>setAddDeptModal({isOpen:false,name:''})}><div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700"><h3 className="font-bold mb-3">📁 Nuovo Reparto</h3><input type="text" value={addDeptModal.name} onChange={e=>setAddDeptModal(p=>({...p,name:e.target.value}))} placeholder="Nome Reparto" className="w-full bg-gray-900 rounded-lg p-3 mb-4" autoFocus/><div className="flex gap-3"><button onClick={()=>setAddDeptModal({isOpen:false,name:''})} className="flex-1 py-3 bg-gray-700 rounded-xl">Annulla</button><button onClick={addDept} className="flex-1 py-3 bg-emerald-600 rounded-xl">Crea</button></div></div></div>)}
@@ -376,16 +378,9 @@ export default function App() {
               {editAppt?.id && <button onClick={() => { if(confirm('Eliminare?')) { sock.current.emit('delete_appt', { id: editAppt.id }); setAgendaModal(false); setEditAppt(null); } }} className="py-3 px-4 bg-red-900/50 text-red-400 rounded-xl"><Trash2 className="w-5 h-5"/></button>}
               <button onClick={() => { 
                 if(!editAppt.time || !editAppt.title || !editAppt.operator) return alert('Compila tutto'); 
-                const payload = { 
-                  id: editAppt.id || `appt_${Date.now()}`, 
-                  title: editAppt.title.trim(), 
-                  date: editAppt.date, 
-                  time: editAppt.time, 
-                  operator: editAppt.operator 
-                };
+                const payload = { id: editAppt.id || `appt_${Date.now()}`, title: editAppt.title.trim(), date: editAppt.date, time: editAppt.time, operator: editAppt.operator };
                 sock.current.emit(editAppt.id ? 'update_appt' : 'add_appt', payload); 
-                setAgendaModal(false); 
-                setEditAppt(null); 
+                setAgendaModal(false); setEditAppt(null); 
               }} className="flex-1 py-3 bg-purple-600 rounded-xl font-bold">Salva</button>
             </div>
           </div>
