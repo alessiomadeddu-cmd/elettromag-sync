@@ -47,6 +47,29 @@ io.on('connection', async (socket) => {
     await db.exec('INSERT INTO articles VALUES ($1,$2,$3,0,0)', [data.id, data.deptId, data.descrizione]);
     io.emit('state_sync', await db.getState());
   });
+  
+  // ✅ GESTIONE ELIMINAZIONE ARTICOLO
+  socket.on('delete_art', async (data) => {
+    try {
+      console.log('🗑️ DELETE ARTICOLO:', data);
+      await db.exec('DELETE FROM articles WHERE id = $1', [data.artId]);
+      io.emit('state_sync', await db.getState());
+    } catch (e) { 
+      console.error('Errore durante la cancellazione dell\'articolo:', e); 
+    }
+  });
+
+  // ✅ GESTIONE MODIFICA NOME ARTICOLO (Riallineamento)
+  socket.on('update_art', async (data) => {
+    try {
+      console.log('✏️ UPDATE ARTICOLO:', data);
+      await db.exec('UPDATE articles SET descrizione = $1 WHERE id = $2', [data.descrizione, data.id]);
+      io.emit('state_sync', await db.getState());
+    } catch (e) {
+      console.error('Errore durante la modifica dell\'articolo:', e);
+    }
+  });
+
   socket.on('confirm_tx', async (tx) => {
     if (tx.type === 'realignment') {
       await db.exec('UPDATE articles SET qtyNuovo=$1, qtyRigenerato=$2 WHERE id=$3', [tx.newN, tx.newR, tx.artId]);
@@ -59,7 +82,7 @@ io.on('connection', async (socket) => {
     io.emit('state_sync', await db.getState());
   });
 
-  // ✅ AGENDA (FIX UPDATE)
+  // AGENDA (FIX UPDATE)
   socket.on('add_appt', async (data) => {
     try {
       console.log('➕ ADD:', data);
@@ -72,7 +95,6 @@ io.on('connection', async (socket) => {
   socket.on('update_appt', async (data) => {
     try {
       console.log('✏️ UPDATE:', data);
-      // Aggiorna SOLO i campi modificati, mantenendo l'ID originale
       await db.exec('UPDATE appointments SET title=$1, date=$2, time=$3, operator=$4 WHERE id=$5', 
         [data.title, data.date, data.time, data.operator, data.id]);
       io.emit('sync_appts', { appointments: (await db.query('SELECT * FROM appointments ORDER BY date DESC, time DESC')).rows });
