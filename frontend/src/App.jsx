@@ -4,7 +4,7 @@ import {
   Settings, BookOpen, ArrowLeft, Radio, Zap, Sun, Shield,
   Plus, Trash2, X, Check, Minus, RotateCcw, Package, Wrench, Lightbulb, Server, Battery, Plug, WifiOff, Pencil,
   Calendar, ChevronLeft, ChevronRight, Star, Database,
-  ListTodo, FileText, CheckCircle, Circle
+  ListTodo, CheckCircle, Circle
 } from 'lucide-react';
 
 const ICONS = { Radio, Zap, Sun, Shield, Package, Wrench, Lightbulb, Server, Battery, Plug };
@@ -41,16 +41,16 @@ export default function App() {
   const touchStartX = useRef(null);
   const [inventoryModal, setInventoryModal] = useState(false);
   
-  // ✅ STATI V4.0 (TODO & FATTURE)
+  // ✅ STATI V4.0 (TODO)
   const [todos, setTodos] = useState([]);
-  const [invoices, setInvoices] = useState([]);
   const [todoModal, setTodoModal] = useState({ open: false, editId: null, title: '', priority: 'medium', due_date: '' });
-  const [invoiceModal, setInvoiceModal] = useState({ open: false, editId: null, customer: '', amount: '', status: 'pending', due_date: '', notes: '' });
   const [todoFilter, setTodoFilter] = useState('all');
-  const [invoiceFilter, setInvoiceFilter] = useState('pending');
   
   const sock = useRef(null);
   const holdTimer = useRef(null);
+
+  // Calcolo dinamico del base URL per evitare errori CORS/Inizializzazione sia locale che in produzione
+  const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin;
 
   useEffect(() => {
     const savedAuth = localStorage.getItem('em_auth');
@@ -68,8 +68,7 @@ export default function App() {
   }, [view]);
 
   const connect = (key) => {
-    const url = window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin;
-    const s = io(url, { auth: { key }, reconnection: true, reconnectionDelay: 1000, timeout: 5000, transports: ['websocket', 'polling'] });
+    const s = io(baseUrl, { auth: { key }, reconnection: true, reconnectionDelay: 1000, timeout: 5000, transports: ['websocket', 'polling'] });
     sock.current = s;
     s.on('connect', () => {
       setConn('connected');
@@ -92,12 +91,12 @@ export default function App() {
     });
     s.on('sync_appts', (st) => setAppointments(st.appointments || []));
     s.on('sync_todos', (st) => setTodos(st.todos || []));
-    s.on('sync_invoices', (st) => setInvoices(st.invoices || []));
   };
 
+  // ✅ 1. CORREZIONE PULSANTE BACK (Aggiunto 'history')
   const goBack = () => {
-    if (view === 'warehouse' || view === 'agenda' || view === 'settings_global' || view === 'todos' || view === 'invoices') setView('main');
-    else if (view === 'dept') setView('warehouse');
+    if (view === 'warehouse' || view === 'agenda' || view === 'settings_global' || view === 'todos' || view === 'history') setView('main');
+    else if (view === 'dept' || view === 'settings') setView('warehouse');
   };
 
   const getDaysInMonth = (date) => {
@@ -203,16 +202,6 @@ export default function App() {
     sock.current.emit('delete_todo', { id });
   };
 
-  const handleSaveInvoice = () => {
-    if (!invoiceModal.customer.trim() || !invoiceModal.amount) return alert('Compila cliente e importo');
-    const payload = { id: invoiceModal.editId || `inv_${Date.now()}`, customer: invoiceModal.customer.trim(), amount: parseFloat(invoiceModal.amount), status: invoiceModal.status, due_date: invoiceModal.due_date || null, notes: invoiceModal.notes.trim() };
-    sock.current.emit(invoiceModal.editId ? 'update_invoice' : 'add_invoice', payload);
-    setInvoiceModal({ open: false, editId: null, customer: '', amount: '', status: 'pending', due_date: '', notes: '' });
-  };
-  const handleDeleteInvoice = (id) => {
-    sock.current.emit('delete_invoice', { id });
-  };
-
   const DeptView = () => {
     const arts = useMemo(() => [...(data.articles[selectedDept?.id] || [])].sort((a, b) => a.descrizione.localeCompare(b.descrizione)), [data, selectedDept]);
     return (
@@ -239,7 +228,7 @@ export default function App() {
             ))}
           </div>
         </div>
-        <div className="mt-2 flex justify-center items-center gap-2 text-xs text-gray-500"><Settings className="w-3.5 h-3.5"/><span>Usa Gestione Inventario per modificare/riallineare</span></div>
+        <div className="mt-2 flex justify-center items-center gap-2 text-xs text-gray-500"><Wrench className="w-3.5 h-3.5"/><span>Usa Gestione Inventario per modificare/riallineare</span></div>
         <button onClick={() => setAddModal({ isOpen: true, description: '' })} className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg flex items-center justify-center active:scale-95"><Plus className="w-7 h-7"/></button>
       </main>
     );
@@ -261,29 +250,30 @@ export default function App() {
           {(view === 'warehouse' || view === 'dept' || view === 'history' || view === 'settings') && (
             <>
               <button onClick={() => setView('history')} className="p-2 rounded-lg hover:bg-gray-800"><BookOpen className="w-6 h-6 text-gray-400"/></button>
-              <button onClick={() => setView('settings')} className="p-2 rounded-lg hover:bg-gray-800"><Settings className="w-6 h-6 text-gray-400"/></button>
+              <button onClick={() => setView('settings')} className="p-2 rounded-lg hover:bg-gray-800"><Wrench className="w-6 h-6 text-gray-400"/></button>
             </>
           )}
         </div>
       </header>
 
+      {/* Sezione configurazione globale */}
       {view === 'settings_global' && (
         <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-4 items-center justify-center">
           <h2 className="text-2xl font-bold mb-8">Configurazione & Database</h2>
           <div className="w-full max-w-md space-y-4">
             <button onClick={async () => { 
-              try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`em_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Backup salvato'); } catch(e){ alert('❌ ' + e.message); }
+              try { const key = auth.key || localStorage.getItem('em_auth_key'); const res = await fetch(`${baseUrl}/api/db/export?key=${encodeURIComponent(key)}`); if(!res.ok) return alert('❌ Errore export'); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`em_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); window.URL.revokeObjectURL(url); alert('✅ Backup salvato'); } catch(e){ alert('❌ ' + e.message); }
             }} className="w-full py-4 bg-gray-700 text-gray-200 rounded-xl flex gap-3 items-center justify-center hover:bg-gray-600 transition text-lg font-medium"><Database className="w-6 h-6"/> Backup Database</button>
             <label className="w-full py-4 bg-gray-700 text-gray-200 rounded-xl flex gap-3 items-center justify-center hover:bg-gray-600 transition text-lg font-medium cursor-pointer">
               <RotateCcw className="w-6 h-6"/> Restore Database
-              <input type="file" accept=".json" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/>
+              <input type="file" accept=".json" className="hidden" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const fd = new FormData(); fd.append('dbfile', file); const key = auth.key || localStorage.getItem('em_auth_key'); try { const res = await fetch(`${baseUrl}/api/db/import?key=${encodeURIComponent(key)}`, {method:'POST', body:fd}); const d = await res.json(); alert(d.success ? '✅ ' + d.message : '❌ ' + d.error); } catch(err){ alert('❌ ' + err.message); } e.target.value=''; }}/>
             </label>
             <button onClick={() => setView('main')} className="w-full py-3 mt-8 text-gray-500 hover:text-white transition">Torna alla Home</button>
           </div>
         </main>
       )}
 
-      {/* ✅ SEZIONE HOME (GRID COMPATTA 2X2 CON ASSOCIAZIONI RICHIESTE) */}
+      {/* ✅ SEZIONE HOME (GRID CON TODO LARGHEZZA DOPPIA) */}
       {view === 'main' && (
         <main className="flex flex-col items-center justify-center h-[calc(100vh-56px)] p-4 max-w-lg mx-auto">
           <div className="grid grid-cols-2 gap-4 w-full">
@@ -291,7 +281,7 @@ export default function App() {
             <button onClick={() => setView('warehouse')} className="w-full p-5 bg-gray-800 rounded-2xl border border-gray-700 hover:border-blue-500 transition flex flex-col items-center justify-center gap-2 active:scale-95 text-center min-h-[150px]">
               <Package className="w-10 h-10 text-blue-400"/>
               <span className="text-xl font-bold">Magazzino</span>
-              <span className="text-gray-400 text-xs line-clamp-2">Reparti e articoli</span>
+              <span className="text-gray-400 text-xs line-clamp-2">Reparti e articles</span>
             </button>
             <button onClick={() => setView('agenda')} className="w-full p-5 bg-gray-800 rounded-2xl border border-gray-700 hover:border-purple-500 transition flex flex-col items-center justify-center gap-2 active:scale-95 text-center min-h-[150px]">
               <Calendar className="w-10 h-10 text-purple-400"/>
@@ -300,15 +290,10 @@ export default function App() {
             </button>
 
             {/* ── FILA 2 ── */}
-            <button onClick={() => setView('todos')} className="w-full p-5 bg-gray-800 rounded-2xl border border-gray-700 hover:border-orange-500 transition flex flex-col items-center justify-center gap-2 active:scale-95 text-center min-h-[150px]">
+            <button onClick={() => setView('todos')} className="col-span-2 w-full p-5 bg-gray-800 rounded-2xl border border-gray-700 hover:border-orange-500 transition flex flex-col items-center justify-center gap-2 active:scale-95 text-center min-h-[150px]">
               <ListTodo className="w-10 h-10 text-orange-400"/>
               <span className="text-xl font-bold">ToDo</span>
               <span className="text-gray-400 text-xs line-clamp-2">Attività e priorità</span>
-            </button>
-            <button onClick={() => setView('invoices')} className="w-full p-5 bg-gray-800 rounded-2xl border border-gray-700 hover:border-emerald-500 transition flex flex-col items-center justify-center gap-2 active:scale-95 text-center min-h-[150px]">
-              <FileText className="w-10 h-10 text-emerald-400"/>
-              <span className="text-xl font-bold">Fatture</span>
-              <span className="text-gray-400 text-xs line-clamp-2">Registro da emettere</span>
             </button>
           </div>
         </main>
@@ -376,7 +361,7 @@ export default function App() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setEditDeptModal({ isOpen: true, deptId: d.id, currentLabel: d.label, newLabel: d.label })} className="text-blue-400 p-2 hover:text-blue-300 transition hover:bg-blue-900/30 rounded-lg">
-                    <Settings className="w-5 h-5"/>
+                    <Wrench className="w-5 h-5"/>
                   </button>
                   <button onClick={() => setDelDeptModal({ isOpen: true, deptId: d.id, label: d.label })} className="text-red-400 p-2 hover:text-red-300 transition hover:bg-red-900/30 rounded-lg">
                     <Trash2 className="w-5 h-5"/>
@@ -399,7 +384,7 @@ export default function App() {
         </main>
       )}
 
-      {/* ✅ V4.0 VIEW TO-DO */}
+      {/* ✅ VIEW TO-DO */}
       {view === 'todos' && (
         <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-20">
           <div className="flex justify-between items-center mb-4">
@@ -437,47 +422,7 @@ export default function App() {
         </main>
       )}
 
-      {/* ✅ V4.0 VIEW FATTURE */}
-      {view === 'invoices' && (
-        <main className="flex flex-col h-[calc(100vh-56px)] p-4 pb-20">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold flex gap-2 items-center"><FileText className="w-6 h-6 text-emerald-400"/>Fatture</h2>
-            <div className="flex gap-1 bg-gray-800 p-1 rounded-lg overflow-x-auto">
-              {['pending','all','issued','paid'].map(f => (
-                <button key={f} onClick={()=>setInvoiceFilter(f)} className={`px-3 py-1 rounded-md text-xs font-medium whitespace-nowrap transition ${invoiceFilter===f?'bg-gray-700 text-white':'text-gray-400 hover:text-white'}`}>
-                  {f==='all'?'Tutte':f==='pending'?'Da emettere':f==='issued'?'Emesse':f==='paid'?'Pagate':'Annullate'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-y-auto p-3 space-y-2">
-            {invoices.filter(i => invoiceFilter === 'all' ? true : i.status === invoiceFilter).length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-500"><FileText className="w-12 h-12 mb-2 opacity-50"/><span>Nessuna fattura</span></div>
-            ) : (
-              invoices.filter(i => invoiceFilter === 'all' ? true : i.status === invoiceFilter).map(inv => (
-                <div key={inv.id} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-xl border border-gray-700 hover:border-gray-600 transition">
-                  <div>
-                    <p className="font-semibold text-gray-200 truncate max-w-[200px]">{inv.customer}</p>
-                    <p className="text-xs text-gray-500 mt-1">{inv.due_date ? `Scadenza: ${inv.due_date}` : 'Nessuna scadenza'}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="font-bold text-emerald-400 tabular-nums">€ {parseFloat(inv.amount).toFixed(2)}</p>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${inv.status==='pending'?'bg-orange-500/10 text-orange-400 border-orange-500/30':inv.status==='issued'?'bg-blue-500/10 text-blue-400 border-blue-500/30':'bg-green-500/10 text-green-400 border-green-500/30'}`}>{inv.status==='pending'?'In attesa':inv.status==='issued'?'Emessa':'Pagata'}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => setInvoiceModal({ open: true, editId: inv.id, customer: inv.customer, amount: inv.amount, status: inv.status, due_date: inv.due_date || '', notes: inv.notes || '' })} className="p-2 text-gray-400 hover:text-blue-400 transition"><Pencil className="w-4 h-4"/></button>
-                      <button onClick={() => handleDeleteInvoice(inv.id)} className="p-2 text-gray-400 hover:text-red-400 transition"><Trash2 className="w-4 h-4"/></button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          <button onClick={() => setInvoiceModal({ open: true, editId: null, customer: '', amount: '', status: 'pending', due_date: '', notes: '' })} className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg flex items-center justify-center active:scale-95"><Plus className="w-7 h-7"/></button>
-        </main>
-      )}
-
+      {/* ✅ VIEW AGENDA CON AGGIUNTA DATA SELEZIONATA */}
       {view === 'agenda' && (
         <div className="flex flex-col h-[calc(100vh-56px)] bg-gray-900 overflow-hidden">
           <div className="bg-gray-800 p-4 border-b border-gray-700 z-10 shadow-lg flex-shrink-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -496,6 +441,10 @@ export default function App() {
                 return (<button key={i} onClick={() => d.date && setSelectedDate(d.date)} disabled={!d.date} className={`h-12 w-full rounded-lg border flex flex-col items-center justify-center relative transition ${dayClass}`}>{d.day}{hasAppt(d.date) && <Star className="w-3 h-3 text-yellow-400 absolute top-1 right-1"/>}</button>);
               })}
             </div>
+            {/* ✅ 2. AGGIUNTA DATA SELEZIONATA SOTTO IL CALENDARIO */}
+            <div className="text-center text-sm font-semibold text-blue-400 mt-3 bg-gray-900/40 py-1.5 rounded-lg border border-gray-700/50">
+              Selezionato: {selectedDate ? selectedDate.split('-').reverse().join('/') : '-'}
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-20">
             {appointments.filter(a => a.date === selectedDate).sort((a,b) => a.time.localeCompare(b.time)).map(appt => (
@@ -512,7 +461,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ✅ MODALI MAGAZZINO */}
+      {/* Modali Magazzino e Gestione */}
       {modal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur p-4" onClick={closeModal}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl max-h-[80vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
@@ -635,7 +584,7 @@ export default function App() {
                   <div key={art.id} className="flex justify-between items-center p-3 bg-gray-900/50 rounded-xl border border-gray-700">
                     <span className="text-gray-200 truncate mr-3 text-sm font-medium">{art.descrizione}</span>
                     <button onClick={() => { setInventoryModal(false); openModal(art.dept_id, art.id, 'realignment'); }} className="p-2 rounded-lg transition text-white/60 hover:bg-white/10 hover:text-white active:scale-90">
-                      <Settings className="w-4 h-4"/>
+                      <Wrench className="w-4 h-4"/>
                     </button>
                   </div>
                 ))
@@ -645,7 +594,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ✅ MODALE AGENDA */}
+      {/* Modale Agenda */}
       {agendaModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4" onClick={() => setAgendaModal(false)}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -673,7 +622,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ✅ V4.0 MODALI TO-DO & FATTURE */}
+      {/* Modale ToDo */}
       {todoModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4" onClick={() => setTodoModal({ open: false, editId: null, title: '', priority: 'medium', due_date: '' })}>
           <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -688,30 +637,6 @@ export default function App() {
             <div className="flex gap-3">
               <button onClick={() => setTodoModal({ open: false, editId: null, title: '', priority: 'medium', due_date: '' })} className="flex-1 py-3 bg-gray-700 rounded-xl">Annulla</button>
               <button onClick={handleAddTodo} className="flex-1 py-3 bg-orange-600 hover:bg-orange-500 rounded-xl font-bold">Salva</button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {invoiceModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4" onClick={() => setInvoiceModal({ open: false, editId: null, customer: '', amount: '', status: 'pending', due_date: '', notes: '' })}>
-          <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-4">🧾 {invoiceModal.editId ? 'Modifica Fattura' : 'Nuova Fattura'}</h3>
-            <input type="text" placeholder="Cliente" value={invoiceModal.customer} onChange={e => setInvoiceModal(p => ({...p, customer: e.target.value}))} className="w-full bg-gray-900 rounded-lg p-3 mb-3 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none"/>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <input type="number" step="0.01" placeholder="Importo €" value={invoiceModal.amount} onChange={e => setInvoiceModal(p => ({...p, amount: e.target.value}))} className="w-full bg-gray-900 rounded-lg p-3 border border-gray-700 text-white outline-none"/>
-              <select value={invoiceModal.status} onChange={e => setInvoiceModal(p => ({...p, status: e.target.value}))} className="w-full bg-gray-900 rounded-lg p-3 border border-gray-700 text-white outline-none">
-                <option value="pending">Da emettere</option>
-                <option value="issued">Emessa</option>
-                <option value="paid">Pagata</option>
-                <option value="cancelled">Annullata</option>
-              </select>
-            </div>
-            <input type="date" value={invoiceModal.due_date} onChange={e => setInvoiceModal(p => ({...p, due_date: e.target.value}))} className="w-full bg-gray-900 rounded-lg p-3 mb-3 border border-gray-700 text-white outline-none"/>
-            <textarea placeholder="Note aggiuntive" value={invoiceModal.notes} onChange={e => setInvoiceModal(p => ({...p, notes: e.target.value}))} className="w-full bg-gray-900 rounded-lg p-3 mb-4 border border-gray-700 text-white outline-none resize-none h-20"/>
-            <div className="flex gap-3">
-              <button onClick={() => setInvoiceModal({ open: false, editId: null, customer: '', amount: '', status: 'pending', due_date: '', notes: '' })} className="flex-1 py-3 bg-gray-700 rounded-xl">Annulla</button>
-              <button onClick={handleSaveInvoice} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold">Salva</button>
             </div>
           </div>
         </div>
